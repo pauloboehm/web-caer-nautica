@@ -1,2 +1,3 @@
-# web-pessoal
-Minha pagina pessoal na web
+# web-caer-nautica
+
+Site da seção náutica do Clube da Aeronáutica de Brasília
