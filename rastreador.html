@@ -8,16 +8,23 @@
   canvas { border: 1px solid black; margin-top: 10px; }
   #info { margin-top: 10px; font-size: 18px; line-height: 1.6; }
   #relogio { font-size: 20px; margin-top: 5px; font-weight: bold; }
+  @media (max-width: 600px) { /* Celular (largura até 600px) */
+    body {
+      font-size: 20px;
+    }
+    #info { font-size: 36px; line-height: 1.6; }
+    #relogio { font-size: 40px; }
+  }
 </style>
 </head>
 <body>
+  <script src="rastreio.js"></script>
+
   <h2>Gravador de Trilhas (GPX)</h2>
 
   <label for="mapSelect">Escolha o mapa:</label>
   <select id="mapSelect">
-    <option value="mapa1">Mapa da Cidade</option>
-    <option value="mapa2">Mapa da Fazenda</option>
-    <option value="mapa3">Mapa da Trilha</option>
+    <option value="semmapa">Sem mapa</option>
   </select>
   <br><br>
 
@@ -27,7 +34,7 @@
   <canvas id="mapa" width="800" height="600"></canvas>
 
   <div id="info">
-    Velocidade: 0 km/h<br>
+    Velocidade: 0 Mph<br>
     Rumo: -<br>
     Tempo: 0s<br>
     Distância: 0.0 km
@@ -48,13 +55,27 @@
     let wakeLock = null;
 
     // Configuração dos mapas
-    const mapas = {
-      "mapa1": { arquivo: "mapa1.png", minLat: -15.9, maxLat: -15.7, minLon: -48.1, maxLon: -47.8 },
-      "mapa2": { arquivo: "mapa2.png", minLat: -22.0, maxLat: -21.8, minLon: -43.5, maxLon: -43.2 },
-      "mapa3": { arquivo: "mapa3.png", minLat: -10.1, maxLat: -9.9, minLon: -36.5, maxLon: -36.2 }
-    };
+    let mapas = {}; // mapaAtual será definido depois
+    let mapaAtual = null;
 
-    let mapaAtual = mapas["mapa1"];
+    async function carregarMapasJSON() {
+      try {
+        const response = await fetch("mapas.json");
+        const dados = await response.json();
+        const select = document.getElementById("mapSelect");
+        dados.forEach(m => {
+          mapas[m.id] = m;
+          const option = document.createElement("option");
+          option.value = m.id;
+          option.textContent = m.nome;
+          select.appendChild(option);
+        });
+        // Carrega o primeiro mapa por padrão
+        //carregarMapa(dados[0].id);
+      } catch (err) {
+        console.error("Erro ao carregar mapas JSON:", err);
+      }
+    }
 
     function carregarMapa(mapa) {
       mapaAtual = mapas[mapa];
@@ -127,7 +148,7 @@
     }
 
     function atualizarInfo() {
-      let velKmh = 0;
+      let velMph = 0;
       let rumo = "-";
       let rumoTxt = "-";
 
@@ -140,7 +161,8 @@
 
         const dt = (new Date(p2.time) - new Date(p1.time)) / 1000;
         const vel = dt > 0 ? (dist/dt) : 0;
-        velKmh = (vel * 3.6).toFixed(1);
+        //velKmh = (vel * 3.6).toFixed(1);
+        velMph = (vel * 2.23694).toFixed(1);
 
         rumo = calcularRumo(p1.lat, p1.lon, p2.lat, p2.lon).toFixed(0);
         rumoTxt = rumoCardinal(rumo);
@@ -153,7 +175,7 @@
       const tempoFmt = `${horas}h ${minutos}m ${segundos}s`;
 
       info.innerHTML = `
-        Velocidade: ${velKmh} km/h<br>
+        Velocidade: ${velMph} Mph<br>
         Rumo: ${rumo}° (${rumoTxt})<br>
         Tempo: ${tempoFmt}<br>
         Distância: ${(distanciaTotal/1000).toFixed(2)} km
@@ -248,6 +270,7 @@
     setInterval(atualizarRelogio, 1000);
 
     // Carrega mapa inicial
-    carregarMapa("mapa1");
+    carregarMapasJSON();
+    carregarMapaAtual();
   </script>
 </body>
