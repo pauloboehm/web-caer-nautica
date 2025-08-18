@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Gravador GPX com Mapa</title>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; }
+  canvas { border: 1px solid black; margin-top: 10px; }
+  #info { margin-top: 10px; font-size: 18px; line-height: 1.6; }
+  #relogio { font-size: 20px; margin-top: 5px; font-weight: bold; }
+</style>
+</head>
+<body>
+  <h2>Gravador de Trilhas (GPX)</h2>
+
+  <label for="mapSelect">Escolha o mapa:</label>
+  <select id="mapSelect">
+    <option value="mapa1">Mapa da Cidade</option>
+    <option value="mapa2">Mapa da Fazenda</option>
+    <option value="mapa3">Mapa da Trilha</option>
+  </select>
+  <br><br>
+
+  <button id="startBtn">Iniciar</button>
+  <button id="stopBtn" disabled>Terminar</button>
+  <br>
+  <canvas id="mapa" width="800" height="600"></canvas>
+
+  <div id="info">
+    Velocidade: 0 km/h<br>
+    Rumo: -<br>
+    Tempo: 0s<br>
+    Distância: 0.0 km
+  </div>
+  <div id="relogio">--:--:--</div>
+
+  <script>
+    const canvas = document.getElementById("mapa");
+    const ctx = canvas.getContext("2d");
+    const info = document.getElementById("info");
+
+    const img = new Image();
+    let pontos = [];
+    let intervalo = null;
+    let inicioTempo = null;
+    let distanciaTotal = 0;
+
+    let wakeLock = null;
+
+    // Configuração dos mapas
+    const mapas = {
+      "mapa1": { arquivo: "mapa1.png", minLat: -15.9, maxLat: -15.7, minLon: -48.1, maxLon: -47.8 },
+      "mapa2": { arquivo: "mapa2.png", minLat: -22.0, maxLat: -21.8, minLon: -43.5, maxLon: -43.2 },
+      "mapa3": { arquivo: "mapa3.png", minLat: -10.1, maxLat: -9.9, minLon: -36.5, maxLon: -36.2 }
+    };
+
+    let mapaAtual = mapas["mapa1"];
+
+    function carregarMapa(mapa) {
+      mapaAtual = mapas[mapa];
+      img.src = mapaAtual.arquivo;
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      };
+    }
+
+    // Conversão GPS → Canvas
+    function gpsParaCanvas(lat, lon) {
+      const {minLat, maxLat, minLon, maxLon} = mapaAtual;
+      const x = (lon - minLon) / (maxLon - minLon) * canvas.width;
+      const y = canvas.height - (lat - minLat) / (maxLat - minLat) * canvas.height;
+      return {x, y};
+    }
+
+    function desenharPercurso() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      if (pontos.length < 2) return;
+
+      ctx.beginPath();
+      const inicio = gpsParaCanvas(pontos[0].lat, pontos[0].lon);
+      ctx.moveTo(inicio.x, inicio.y);
+
+      for (let i = 1; i < pontos.length; i++) {
+        const p = gpsParaCanvas(pontos[i].lat, pontos[i].lon);
+        ctx.lineTo(p.x, p.y);
+      }
+
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      const ultimo = gpsParaCanvas(pontos[pontos.length-1].lat, pontos[pontos.length-1].lon);
+      ctx.fillStyle = "blue";
+      ctx.beginPath();
+      ctx.arc(ultimo.x, ultimo.y, 5, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    // Distância entre dois pontos em metros
+    function distanciaMetros(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = x => x * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // Rumo em graus
+    function calcularRumo(lat1, lon1, lat2, lon2) {
+      const toRad = x => x * Math.PI / 180;
+      const toDeg = x => x * 180 / Math.PI;
+      const dLon = toRad(lon2 - lon1);
+      const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+      let brng = toDeg(Math.atan2(y, x));
+      return (brng + 360) % 360;
+    }
+
+    function rumoCardinal(brng) {
+      const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+      return dirs[Math.round(brng / 45) % 8];
+    }
+
+    function atualizarInfo() {
+      let velKmh = 0;
+      let rumo = "-";
+      let rumoTxt = "-";
+
+      if (pontos.length >= 2) {
+        const p1 = pontos[pontos.length-2];
+        const p2 = pontos[pontos.length-1];
+
+        const dist = distanciaMetros(p1.lat, p1.lon, p2.lat, p2.lon);
+        distanciaTotal += dist;
+
+        const dt = (new Date(p2.time) - new Date(p1.time)) / 1000;
+        const vel = dt > 0 ? (dist/dt) : 0;
+        velKmh = (vel * 3.6).toFixed(1);
+
+        rumo = calcularRumo(p1.lat, p1.lon, p2.lat, p2.lon).toFixed(0);
+        rumoTxt = rumoCardinal(rumo);
+      }
+
+      const tempoDecorrido = inicioTempo ? Math.floor((Date.now() - inicioTempo) / 1000) : 0;
+      const horas = Math.floor(tempoDecorrido / 3600);
+      const minutos = Math.floor((tempoDecorrido % 3600) / 60);
+      const segundos = tempoDecorrido % 60;
+      const tempoFmt = `${horas}h ${minutos}m ${segundos}s`;
+
+      info.innerHTML = `
+        Velocidade: ${velKmh} km/h<br>
+        Rumo: ${rumo}° (${rumoTxt})<br>
+        Tempo: ${tempoFmt}<br>
+        Distância: ${(distanciaTotal/1000).toFixed(2)} km
+      `;
+    }
+
+    function gerarGPX(pontos) {
+      const header = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="JS GPX Recorder" xmlns="http://www.topografix.com/GPX/1/1">
+<trk><name>Rota</name><trkseg>`;
+      const footer = `</trkseg></trk></gpx>`;
+
+      const pts = pontos.map(p => 
+        `<trkpt lat="${p.lat}" lon="${p.lon}">
+          <time>${p.time}</time>
+        </trkpt>`
+      ).join("\n");
+
+      return header + "\n" + pts + "\n" + footer;
+    }
+
+    async function ativarWakeLock() {
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+        console.log("Wake Lock ativo.");
+        wakeLock.addEventListener("release", () => console.log("Wake Lock liberado!"));
+      } catch (err) {
+        console.error("Erro ao ativar Wake Lock:", err);
+      }
+    }
+
+    async function desativarWakeLock() {
+      if (wakeLock) await wakeLock.release();
+      wakeLock = null;
+    }
+
+    document.getElementById("mapSelect").onchange = (e) => {
+      carregarMapa(e.target.value);
+    };
+
+    document.getElementById("startBtn").onclick = () => {
+      pontos = [];
+      distanciaTotal = 0;
+      inicioTempo = Date.now();
+
+      document.getElementById("startBtn").disabled = true;
+      document.getElementById("stopBtn").disabled = false;
+
+      ativarWakeLock();
+
+      intervalo = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(pos => {
+          pontos.push({
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            time: new Date().toISOString()
+          });
+          desenharPercurso();
+          atualizarInfo();
+        }, err => console.error("Erro ao obter localização:", err));
+      }, 1000);
+    };
+
+    document.getElementById("stopBtn").onclick = () => {
+      clearInterval(intervalo);
+      document.getElementById("startBtn").disabled = false;
+      document.getElementById("stopBtn").disabled = true;
+
+      desativarWakeLock();
+
+      const gpx = gerarGPX(pontos);
+      const blob = new Blob([gpx], { type: "application/gpx+xml" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "trilha.gpx";
+      a.click();
+      URL.revokeObjectURL(url);
+
+      alert("Arquivo GPX gerado e baixado!");
+    };
+
+    // Relógio local
+    function atualizarRelogio() {
+      const agora = new Date();
+      const horas = String(agora.getHours()).padStart(2,'0');
+      const minutos = String(agora.getMinutes()).padStart(2,'0');
+      const segundos = String(agora.getSeconds()).padStart(2,'0');
+      document.getElementById("relogio").textContent = `${horas}:${minutos}:${segundos}`;
+    }
+    setInterval(atualizarRelogio, 1000);
+
+    // Carrega mapa inicial
+    carregarMapa("mapa1");
+  </script>
+</body>
