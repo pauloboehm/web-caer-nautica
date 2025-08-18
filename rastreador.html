@@ -166,6 +166,9 @@
 
         rumo = calcularRumo(p1.lat, p1.lon, p2.lat, p2.lon).toFixed(0);
         rumoTxt = rumoCardinal(rumo);
+
+        rumo_api = p2.heading;
+        vel_api = p2.speed;
       }
 
       const tempoDecorrido = inicioTempo ? Math.floor((Date.now() - inicioTempo) / 1000) : 0;
@@ -176,7 +179,9 @@
 
       info.innerHTML = `
         Velocidade: ${velMph} Mph<br>
+        Velocidade API: ${vel_api} Mph<br>
         Rumo: ${rumo}° (${rumoTxt})<br>
+        Rumo API: ${rumo_api}° (${rumoTxt})<br>
         Tempo: ${tempoFmt}<br>
         Distância: ${(distanciaTotal/1000).toFixed(2)} km
       `;
@@ -191,6 +196,10 @@
       const pts = pontos.map(p => 
         `<trkpt lat="${p.lat}" lon="${p.lon}">
           <time>${p.time}</time>
+          <speed>${p.speed}</speed>
+          <course>${p.heading}</course>
+          <ele>${p.ele}</ele>
+          <accuracy>${p.accuracy}</accuracy>
         </trkpt>`
       ).join("\n");
 
@@ -235,7 +244,11 @@
           pontos.push({
             lat: pos.coords.latitude,
             lon: pos.coords.longitude,
-            time: new Date().toISOString()
+            time: new Date().toISOString(),
+            speed: pos.coords.speed,
+            heading: pos.coords.heading,
+            accuracy: pos.coords.accuracy,
+            ele: pos.coords.altitude
           });
           desenharPercurso();
           atualizarInfo();
