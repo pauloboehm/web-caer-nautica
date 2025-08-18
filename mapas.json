@@ -1,0 +1,30 @@
+[
+    {
+      "id": "mapa1",
+      "nome": "Mapa náutico",
+      "arquivo": "mapa1.png",
+      "minLat": -15.9,
+      "maxLat": -15.7,
+      "minLon": -48.1,
+      "maxLon": -47.8
+    },
+    {
+      "id": "mapa2",
+      "nome": "Mapa terrestre",
+      "arquivo": "mapa2.png",
+      "minLat": -22.0,
+      "maxLat": -21.8,
+      "minLon": -43.5,
+      "maxLon": -43.2
+    },
+    {
+      "id": "mapa3",
+      "nome": "Mapa aéreo",
+      "arquivo": "mapa3.png",
+      "minLat": -10.1,
+      "maxLat": -9.9,
+      "minLon": -36.5,
+      "maxLon": -36.2
+    }
+  ]
+  
