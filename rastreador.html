@@ -168,7 +168,8 @@
         rumoTxt = rumoCardinal(rumo);
 
         rumo_api = p2.heading;
-        vel_api = p2.speed;
+        rumo_apiTxt = rumoCardinal(rumo_api);
+        vel_api = p2.speed * 2.23694; //Converte de metros/segundo para mph
       }
 
       const tempoDecorrido = inicioTempo ? Math.floor((Date.now() - inicioTempo) / 1000) : 0;
@@ -181,7 +182,7 @@
         Velocidade: ${velMph} Mph<br>
         Velocidade API: ${vel_api} Mph<br>
         Rumo: ${rumo}° (${rumoTxt})<br>
-        Rumo API: ${rumo_api}° (${rumoTxt})<br>
+        Rumo API: ${rumo_api}° (${rumo_apiTxt})<br>
         Tempo: ${tempoFmt}<br>
         Distância: ${(distanciaTotal/1000).toFixed(2)} km
       `;
