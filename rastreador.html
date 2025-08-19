@@ -9,6 +9,7 @@
   canvas { border: 1px solid black; margin-top: 10px; }
   #info { margin-top: 10px; font-size: 18px; line-height: 1.6; }
   #relogio { font-size: 20px; margin-top: 5px; font-weight: bold; }
+  #mapCanvas { width: 100%; height: auto; display: block; }
   @media (max-width: 600px) { /* Celular (largura até 600px) */
     body {
       font-size: 20px;
@@ -32,7 +33,7 @@
   <button id="startBtn">Iniciar</button>
   <button id="stopBtn" disabled>Terminar</button>
   <br>
-  <canvas id="mapa" width="800" height="600"></canvas>
+  <canvas id="mapCanvas" width=max-content height=auto></canvas>
 
   <div id="info">
     Velocidade: 0 Mph<br>
@@ -43,9 +44,12 @@
   <div id="relogio">--:--:--</div>
 
   <script>
-    const canvas = document.getElementById("mapa");
+    const canvas = document.getElementById("mapCanvas");
     const ctx = canvas.getContext("2d");
     const info = document.getElementById("info");
+
+    window.addEventListener("load", ajustarCanvas);
+    window.addEventListener("resize", ajustarCanvas);
 
     const img = new Image();
     let pontos = [];
@@ -252,7 +256,8 @@
             accuracy: pos.coords.accuracy,
             ele: pos.coords.altitude
           });
-          desenharPercurso();
+          //desenharPercurso();
+          desenharUltimoPonto();
           atualizarInfo();
         }, err => console.error("Erro ao obter localização:", err), opcao_pos);
       }, 1000);

@@ -1,3 +1,33 @@
+function desenharUltimoPonto() {
+  if (pontos.length < 2) return;
+
+  const p1 = gpsParaCanvas(pontos[pontos.length - 2].lat, pontos[pontos.length - 2].lon);
+  const p2 = gpsParaCanvas(pontos[pontos.length - 1].lat, pontos[pontos.length - 1].lon);
+
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(p2.x, p2.y);
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // marca último ponto em azul
+  ctx.fillStyle = "blue";
+  ctx.beginPath();
+  ctx.arc(p2.x, p2.y, 5, 0, 2 * Math.PI);
+  ctx.fill();
+}
+
+function ajustarCanvas() {
+  const canvas = document.getElementById("mapCanvas");
+  // largura = largura da janela
+  canvas.width = window.innerWidth;
+  // altura proporcional (exemplo: metade da largura)
+  canvas.height = window.innerHeight * 0.6;
+  //redesenhar();
+  desenharPercurso();
+}
+
 function limitesMapa(lat, lon, raioKm) {
     const R = 6371; // raio da Terra em km
   
