@@ -5,6 +5,7 @@ body {
     line-height: 1.6;
     margin: 0;
     display: flex;
+    transition: all 0.3s ease-in-out; /* anima mudança de layout */
 }
   
 /* Menu lateral padrão (desktop) */
@@ -16,6 +17,9 @@ nav {
   padding: 20px;
   box-sizing: border-box;
   position: fixed;
+  top: 0;
+  left: 0;
+  transition: all 0.3s ease-in-out; /* anima largura/altura */
 }
 
 nav ul {
@@ -43,6 +47,7 @@ main {
   flex: 1;
   padding: 20px;
   margin-left: 200px;  /* mesmo valor da largura do menu */
+  transition: all 0.3s ease-in-out; /* anima margem */
 }
 
 img {
@@ -90,4 +95,9 @@ img {
     max-width: 100%;
   }
 }
-  
+
+@media (orientation: landscape) {
+  body {
+    flex-direction: row; /* menu em cima, conteúdo embaixo */
+  }
+}
