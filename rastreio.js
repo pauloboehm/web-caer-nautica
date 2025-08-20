@@ -1,3 +1,45 @@
+// Distância entre dois pontos em metros
+function distanciaMetros(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = x => x * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// Rumo em graus
+function calcularRumo(lat1, lon1, lat2, lon2) {
+  const toRad = x => x * Math.PI / 180;
+  const toDeg = x => x * 180 / Math.PI;
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+            Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  let brng = toDeg(Math.atan2(y, x));
+  return (brng + 360) % 360;
+}
+
+function rumoCardinal(brng) {
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return dirs[Math.round(brng / 45) % 8];
+}
+
+function limitesMapa(lat, lon, raioKm) {
+    const R = 6371; // raio da Terra em km
+  
+    const deltaLat = (raioKm / R) * (180 / Math.PI); // conversão para graus
+    const deltaLon = (raioKm / R) * (180 / Math.PI) / Math.cos(lat * Math.PI / 180);
+  
+    return {
+      minLat: lat - deltaLat,
+      maxLat: lat + deltaLat,
+      minLon: lon - deltaLon,
+      maxLon: lon + deltaLon
+    };
+  }
+
 function desenharUltimoPonto() {
   if (pontos.length < 2) return;
 
@@ -23,58 +65,44 @@ function ajustarCanvas() {
   // largura = largura da janela
   canvas.width = window.innerWidth;
   // altura proporcional (exemplo: metade da largura)
-  canvas.height = window.innerWidth * 0.6;
+  canvas.height = window.innerWidth;
   //redesenhar();
   desenharPercurso();
 }
 
-function limitesMapa(lat, lon, raioKm) {
-    const R = 6371; // raio da Terra em km
-  
-    const deltaLat = (raioKm / R) * (180 / Math.PI); // conversão para graus
-    const deltaLon = (raioKm / R) * (180 / Math.PI) / Math.cos(lat * Math.PI / 180);
-  
-    return {
-      minLat: lat - deltaLat,
-      maxLat: lat + deltaLat,
-      minLon: lon - deltaLon,
-      maxLon: lon + deltaLon
-    };
+async function carregarMapaAtual() {
+  if (!navigator.geolocation) {
+    alert("Geolocalização não suportada neste navegador.");
+    return;
   }
-
-  async function carregarMapaAtual() {
-    if (!navigator.geolocation) {
-      alert("Geolocalização não suportada neste navegador.");
-      return;
+  
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+ 
+      const limites = limitesMapa(lat, lon, 20); // 20 km de raio
+ 
+      mapaAtual = {
+        id: "mapaLocal",
+        nome: "Mapa Local",
+        arquivo: "semmapa.png", // ou outro fundo de mapa genérico
+        minLat: limites.minLat,
+        maxLat: limites.maxLat,
+        minLon: limites.minLon,
+        maxLon: limites.maxLon
+      };
+ 
+      // Carregar imagem do mapa (ex.: PNG genérico)
+      img.src = mapaAtual.arquivo;
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      };
+    },
+    (err) => {
+      console.error("Erro ao obter posição:", err);
+      alert("Não foi possível obter sua localização.");
     }
-  
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-  
-        const limites = limitesMapa(lat, lon, 20); // 20 km de raio
-  
-        mapaAtual = {
-          id: "mapaLocal",
-          nome: "Mapa Local",
-          arquivo: "semmapa.png", // ou outro fundo de mapa genérico
-          minLat: limites.minLat,
-          maxLat: limites.maxLat,
-          minLon: limites.minLon,
-          maxLon: limites.maxLon
-        };
-  
-        // Carregar imagem do mapa (ex.: PNG genérico)
-        img.src = mapaAtual.arquivo;
-        img.onload = () => {
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        };
-      },
-      (err) => {
-        console.error("Erro ao obter posição:", err);
-        alert("Não foi possível obter sua localização.");
-      }
-    );
-  }
+  );
+}
     

@@ -9,7 +9,7 @@
   canvas { border: 1px solid black; margin-top: 10px; }
   #info { margin-top: 10px; font-size: 18px; line-height: 1.6; }
   #relogio { font-size: 20px; margin-top: 5px; font-weight: bold; }
-  #mapCanvas { width: 100%; height: auto; display: block; }
+  #mapCanvas { width: 100%; height: width; display: block; }
   @media (max-width: 600px) { /* Celular (largura até 600px) */
     body {
       font-size: 20px;
@@ -32,16 +32,17 @@
 
   <button id="startBtn">Iniciar</button>
   <button id="stopBtn" disabled>Terminar</button>
+  <label id="infoPrec">Precisão</label>
   <br>
   <canvas id="mapCanvas" width=max-content height=auto></canvas>
 
+  <div id="relogio">--:--:--</div>
   <div id="info">
     Velocidade: 0 Mph<br>
     Rumo: -<br>
     Tempo: 0s<br>
     Distância: 0.0 km
   </div>
-  <div id="relogio">--:--:--</div>
 
   <script>
     const canvas = document.getElementById("mapCanvas");
@@ -153,9 +154,9 @@
     }
 
     function atualizarInfo() {
-      let velMph = 0;
-      let rumo = "-";
-      let rumoTxt = "-";
+      let vel_api = 0;
+      let rumo_api = "-";
+      let rumo_apiTxt = "-";
 
       if (pontos.length >= 2) {
         const p1 = pontos[pontos.length-2];
@@ -164,17 +165,24 @@
         const dist = distanciaMetros(p1.lat, p1.lon, p2.lat, p2.lon);
         distanciaTotal += dist;
 
-        const dt = (new Date(p2.time) - new Date(p1.time)) / 1000;
-        const vel = dt > 0 ? (dist/dt) : 0;
-        //velKmh = (vel * 3.6).toFixed(1);
-        velMph = (vel * 2.23694).toFixed(1);
-
-        rumo = calcularRumo(p1.lat, p1.lon, p2.lat, p2.lon).toFixed(0);
-        rumoTxt = rumoCardinal(rumo);
-
-        rumo_api = p2.heading;
+        if(p2.speed == null){
+          const dt = (new Date(p2.time) - new Date(p1.time)) / 1000;
+          const vel = dt > 0 ? (dist/dt) : 0;
+          //velKmh = (vel * 3.6).toFixed(1);
+          velMph = (vel * 2.23694).toFixed(1);
+          vel_api = velMph;
+        }else vel_api = (p2.speed * 2.23694).toFixed(1); //Converte de metros/segundo para mph
+        if(p2.heading == null){
+          rumo = calcularRumo(p1.lat, p1.lon, p2.lat, p2.lon).toFixed(0);
+          rumo_api = rumo;
+        }else rumo_api = p2.heading.toFixed(0);
         rumo_apiTxt = rumoCardinal(rumo_api);
-        vel_api = p2.speed * 2.23694; //Converte de metros/segundo para mph
+
+        const accdisplay = document.getElementById("infoPrec");
+        accdisplay.innerText = `Precisão: ${p2.accuracy.toFixed(2)} m`;
+        if(p2.accuracy < 2.5) accdisplay.style.backgroundColor = "green";
+        else if(p2.accuracy < 5) accdisplay.style.backgroundColor = "yellow";
+        else accdisplay.style.backgroundColor = "red";
       }
 
       const tempoDecorrido = inicioTempo ? Math.floor((Date.now() - inicioTempo) / 1000) : 0;
@@ -184,10 +192,8 @@
       const tempoFmt = `${horas}h ${minutos}m ${segundos}s`;
 
       info.innerHTML = `
-        Velocidade: ${velMph} Mph<br>
-        Velocidade API: ${vel_api} Mph<br>
-        Rumo: ${rumo}° (${rumoTxt})<br>
-        Rumo API: ${rumo_api}° (${rumo_apiTxt})<br>
+        Velocidade: ${vel_api} Mph<br>
+        Rumo: ${rumo_api}° (${rumo_apiTxt})<br>
         Tempo: ${tempoFmt}<br>
         Distância: ${(distanciaTotal/1000).toFixed(2)} km
       `;
