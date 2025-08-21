@@ -81,7 +81,7 @@ async function carregarMapaAtual() {
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
  
-      const limites = limitesMapa(lat, lon, 20); // 20 km de raio
+      const limites = limitesMapa(lat, lon, raioMapa); // 20 km de raio
  
       mapaAtual = {
         id: "mapaLocal",
