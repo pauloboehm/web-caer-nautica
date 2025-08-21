@@ -24,11 +24,11 @@
 
   <h2>Gravador de Trilhas (GPX)</h2>
 
-  <label for="mapSelect">Escolha o mapa:</label>
-  <select id="mapSelect">
+  <label for="mapSelect" style="display:none;">Escolha o mapa:</label>
+  <select id="mapSelect" style="display:none;">
     <option value="mapaLocal">Mapa local</option>
   </select>
-  <br><br>
+  
   <label for="raio">Raio do mapa:</label>
   <select id="raio">
     <option value="2">2 km</option>
@@ -73,25 +73,6 @@
     // Configuração dos mapas
     let mapas = {}; // mapaAtual será definido depois
     let mapaAtual = null;
-
-    async function carregarMapasJSON() {
-      try {
-        const response = await fetch("mapas.json");
-        const dados = await response.json();
-        const select = document.getElementById("mapSelect");
-        dados.forEach(m => {
-          mapas[m.id] = m;
-          const option = document.createElement("option");
-          option.value = m.id;
-          option.textContent = m.nome;
-          select.appendChild(option);
-        });
-        // Carrega o primeiro mapa por padrão
-        //carregarMapa(dados[0].id);
-      } catch (err) {
-        console.error("Erro ao carregar mapas JSON:", err);
-      }
-    }
 
     function carregarMapa(mapa) {
       mapaAtual = mapas[mapa];
@@ -183,30 +164,10 @@
 
     document.getElementById("raio").addEventListener("change", (e) => {
       raioMapa = parseInt(e.target.value);
-      let mapsel = document.getElementById("mapSelect");
-      if(mapsel.value == "mapaLocal") carregarMapaAtual();
+      if(mapaAtual.id == "mapaLocal") carregarMapaAtual();
       else carregarMapa(mapsel.value);
       desenharPercurso();
     });
-
-    function gerarGPX(pontos) {
-      const header = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="JS GPX Recorder" xmlns="http://www.topografix.com/GPX/1/1">
-<trk><name>Rota</name><trkseg>`;
-      const footer = `</trkseg></trk></gpx>`;
-
-      const pts = pontos.map(p => 
-        `<trkpt lat="${p.lat}" lon="${p.lon}">
-          <time>${p.time}</time>
-          <speed>${p.speed}</speed>
-          <course>${p.heading}</course>
-          <ele>${p.ele}</ele>
-          <accuracy>${p.accuracy}</accuracy>
-        </trkpt>`
-      ).join("\n");
-
-      return header + "\n" + pts + "\n" + footer;
-    }
 
     async function ativarWakeLock() {
       try {
@@ -237,12 +198,13 @@
 
       ativarWakeLock();
       desenharPercurso();
+      document.getElementById("infoPrec").innerText = "Aguardando GPS...";
       const opcao_pos = {
         enableHighAccuracy: true,
         timeout: 500,
         maximumAge: 0
       };
-      intervalo = setInterval(() => {
+      /*intervalo = setInterval(() => {
         navigator.geolocation.getCurrentPosition(pos => {
           pontos.push({
             lat: pos.coords.latitude,
@@ -256,7 +218,27 @@
           desenharUltimoPonto();
           atualizarInfo();
         }, err => console.error("Erro ao obter localização:", err), opcao_pos);
-      }, 1000);
+      }, 1000);*/
+      let ultimoTempo = 0;
+      let watchId = navigator.geolocation.watchPosition(
+        pos => {
+          let agora = Date.now();
+          if (agora - ultimoTempo >= 1000) {
+            ultimoTempo = agora;
+            pontos.push({
+              lat: pos.coords.latitude,
+              lon: pos.coords.longitude,
+              time: new Date().toISOString(),
+              speed: pos.coords.speed,
+              heading: pos.coords.heading,
+              accuracy: pos.coords.accuracy,
+              ele: pos.coords.altitude
+            });
+            desenharUltimoPonto();
+            atualizarInfo();
+          }
+        },
+        err => console.error("Erro ao obter localização:", err), opcao_pos);
     };
 
     document.getElementById("stopBtn").onclick = () => {
@@ -290,7 +272,7 @@
     setInterval(atualizarRelogio, 1000);
 
     // Carrega mapa inicial
-    carregarMapasJSON();
+    //carregarMapasJSON();
     carregarMapaAtual();
   </script>
 </body>

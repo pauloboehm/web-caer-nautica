@@ -105,4 +105,41 @@ async function carregarMapaAtual() {
     }
   );
 }
-    
+
+function gerarGPX(pontos) {
+  const header = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="JS GPX Recorder" xmlns="http://www.topografix.com/GPX/1/1">
+<trk><name>Rota</name><trkseg>`;
+  const footer = `</trkseg></trk></gpx>`;
+
+  const pts = pontos.map(p => 
+    `<trkpt lat="${p.lat}" lon="${p.lon}">
+      <time>${p.time}</time>
+      <speed>${p.speed}</speed>
+      <course>${p.heading}</course>
+      <ele>${p.ele}</ele>
+      <accuracy>${p.accuracy}</accuracy>
+    </trkpt>`
+  ).join("\n");
+
+  return header + "\n" + pts + "\n" + footer;
+}
+
+async function carregarMapasJSON() {
+  try {
+    const response = await fetch("mapas.json");
+    const dados = await response.json();
+    const select = document.getElementById("mapSelect");
+    dados.forEach(m => {
+      mapas[m.id] = m;
+      const option = document.createElement("option");
+      option.value = m.id;
+      option.textContent = m.nome;
+      select.appendChild(option);
+    });
+    // Carrega o primeiro mapa por padrão
+    //carregarMapa(dados[0].id);
+  } catch (err) {
+    console.error("Erro ao carregar mapas JSON:", err);
+  }
+}
