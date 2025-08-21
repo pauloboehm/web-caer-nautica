@@ -70,7 +70,59 @@ function ajustarCanvas() {
   desenharPercurso();
 }
 
-async function carregarMapaAtual() {
+async function iniciaGravacao_interval(listapontos){
+  const opcao_pos = {
+    enableHighAccuracy: true,
+    timeout: 5000,
+    maximumAge: 0
+  };
+  return setInterval(() => {
+    navigator.geolocation.getCurrentPosition(pos => {
+      listapontos.push({
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        time: new Date().toISOString(),
+        speed: pos.coords.speed,
+        heading: pos.coords.heading,
+        accuracy: pos.coords.accuracy,
+        ele: pos.coords.altitude
+      });
+      desenharUltimoPonto();
+      atualizarInfo();
+    }, err => console.error("Erro ao obter localização:", err), opcao_pos);
+  }, 1000);  
+}
+
+let ultimoTempo = 0;
+async function iniciaGravacao_watch(listapontos){
+  const opcao_pos = {
+    enableHighAccuracy: true,
+    timeout: 5000,
+    maximumAge: 0
+  };
+  return navigator.geolocation.watchPosition(
+    pos => {
+      let agora = Date.now();
+      if (agora - ultimoTempo >= 1000) {
+        ultimoTempo = agora;
+        listapontos.push({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          time: new Date().toISOString(),
+          speed: pos.coords.speed,
+          heading: pos.coords.heading,
+          accuracy: pos.coords.accuracy,
+          ele: pos.coords.altitude
+        });
+        desenharUltimoPonto();
+        atualizarInfo();
+      }
+    },
+    err => console.error("Erro ao obter localização:", err), opcao_pos);
+}
+
+/* Retirado palavra async da função*/
+function carregarMapaAtual() {
   if (!navigator.geolocation) {
     alert("Geolocalização não suportada neste navegador.");
     return;

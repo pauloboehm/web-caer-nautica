@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gravador GPX com Mapa</title>
 <style>
-  body { font-family: Arial, sans-serif; text-align: center; }
+  body { font-family: Arial, sans-serif; text-align: center; background-color: lightblue;}
   canvas { border: 1px solid black; margin-top: 10px; }
   #info { margin-top: 10px; font-size: 18px; line-height: 1.6; }
   #relogio { font-size: 20px; margin-top: 5px; font-weight: bold; }
@@ -200,13 +200,13 @@
       ativarWakeLock();
       desenharPercurso();
       document.getElementById("infoPrec").innerText = "Aguardando GPS...";
-      //intervalo = iniciaGravacao_interval(pontos);
-      watchId = iniciaGravacao_watch(pontos);
+      intervalo = iniciaGravacao_interval(pontos);
+      //watchId = iniciaGravacao_watch(pontos);
     };
 
     document.getElementById("stopBtn").onclick = () => {
-      //clearInterval(intervalo);
-      navigator.geolocation.clearWatch(watchId);
+      clearInterval(intervalo);
+      //navigator.geolocation.clearWatch(watchId);
       document.getElementById("startBtn").disabled = false;
       document.getElementById("stopBtn").disabled = true;
 
