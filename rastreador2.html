@@ -35,7 +35,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, push, set, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 window.firebase_app = initializeApp(firebaseConfig);
@@ -229,8 +229,9 @@ function iniciarGravacao(){
       atualizarInfo();
 
       // Envia ponto em tempo real
-      if(rotaRef){
-        const pontoRef = push(ref(db, rotaRef.path + "/pontos"));
+      if (rotaRef) {
+        const pontosRef = child(rotaRef, "pontos");
+        const pontoRef = push(pontosRef);
         set(pontoRef, ponto);
       }
     },
