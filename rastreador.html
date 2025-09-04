@@ -55,17 +55,7 @@
     Distância: 0.0 km
   </div>
 
-  <script src="firedb.js"></script>
-  <script type="module">
-    // Importa apenas o necessário
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-    // Inicializa Firebase
-    window.firebase_app = initializeApp(firebaseConfig);
-    window.firebase_db = getDatabase(window.firebase_app);
-  </script>
-
-<script type="module">
+<script>
     const canvas = document.getElementById("mapCanvas");
     const ctx = canvas.getContext("2d");
     const info = document.getElementById("info");
