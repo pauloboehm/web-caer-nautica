@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gravador GPX em tempo real</title>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; }
+  canvas { border: 1px solid black; margin-top: 10px; display:block; }
+  #info { margin-top: 10px; font-size: 18px; line-height: 1.6; }
+  #relogio { font-size: 20px; margin-top: 5px; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h2>Gravador GPX em tempo real</h2>
+
+<div id="dbstatus">Autenticando...</div>
+
+<button id="startBtn">Iniciar</button>
+<button id="stopBtn" disabled>Terminar</button>
+<label id="infoPrec">Precisão</label>
+
+<canvas id="mapCanvas"></canvas>
+
+<div id="relogio">--:--:--</div>
+<div id="info">
+  Rumo: -<br>
+  Velocidade: 0 Mph<br>
+  Distância: 0.0 km<br>
+  Tempo: 0s
+</div>
+
+<script src="firedb.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+window.firebase_app = initializeApp(firebaseConfig);
+window.firebase_db = getDatabase(window.firebase_app);
+const auth = getAuth(window.firebase_app);
+
+let currentUser = null;
+let pontos = [];
+let watchId = null;
+let distanciaTotal = 0;
+let inicioTempo = null;
+let rotaRef = null;
+let cadencia_gravacao = 0;
+
+const canvas = document.getElementById("mapCanvas");
+const ctx = canvas.getContext("2d");
+const info = document.getElementById("info");
+const img = new Image();
+
+// Canvas seguro
+function ajustarCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerWidth * 0.6;
+  if(img.complete) desenharPercurso();
+}
+window.addEventListener("load", ajustarCanvas);
+window.addEventListener("resize", ajustarCanvas);
+
+// Função simples de conversão GPS → Canvas
+const mapaAtual = { arquivo: "semmapa.png", minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 };
+function gpsParaCanvas(lat, lon){
+  const {minLat,maxLat,minLon,maxLon} = mapaAtual;
+  const x = (lon-minLon)/(maxLon-minLon)*canvas.width;
+  const y = canvas.height - (lat-minLat)/(maxLat-minLat)*canvas.height;
+  return {x,y};
+}
+
+// Desenha percurso
+function desenharPercurso(){
+  if(!img.complete) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  if(pontos.length<2) return;
+
+  ctx.beginPath();
+  const inicio = gpsParaCanvas(pontos[0].lat,pontos[0].lon);
+  ctx.moveTo(inicio.x,inicio.y);
+  for(let i=1;i<pontos.length;i++){
+    const p = gpsParaCanvas(pontos[i].lat,pontos[i].lon);
+    ctx.lineTo(p.x,p.y);
+  }
+  ctx.strokeStyle="red";
+  ctx.lineWidth=3;
+  ctx.stroke();
+
+  // último ponto azul
+  const ultimo = gpsParaCanvas(pontos[pontos.length-1].lat,pontos[pontos.length-1].lon);
+  ctx.fillStyle="blue";
+  ctx.beginPath();
+  ctx.arc(ultimo.x,ultimo.y,5,0,2*Math.PI);
+  ctx.fill();
+}
+
+// Distância entre dois pontos
+function distanciaMetros(lat1,lon1,lat2,lon2){
+  const R=6371000;
+  const toRad=x=>x*Math.PI/180;
+  const dLat=toRad(lat2-lat1);
+  const dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  return R*c;
+}
+
+// Rumo em graus
+function calcularRumo(lat1, lon1, lat2, lon2) {
+  const toRad = x => x * Math.PI / 180;
+  const toDeg = x => x * 180 / Math.PI;
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+            Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  let brng = toDeg(Math.atan2(y, x));
+  return (brng + 360) % 360;
+}
+
+function rumoCardinal(brng) {
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return dirs[Math.round(brng / 45) % 8];
+}
+
+// Atualiza informações
+function atualizarInfo(){
+  let vel_api=0;
+  let rumo_api = "-";
+  let rumo_apiTxt = "-";
+  if(pontos.length>=2){
+    const p1=pontos[pontos.length-2];
+    const p2=pontos[pontos.length-1];
+    const dist=distanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon);
+    distanciaTotal+=dist;
+    const dt=(new Date(p2.time)-new Date(p1.time))/1000;
+    vel_api = dt>0 ? (dist/dt*2.23694).toFixed(1) : 0;
+
+    const accdisplay = document.getElementById("infoPrec");
+    accdisplay.innerText = `Precisão: ${p2.accuracy.toFixed(2)} m`;
+    if(p2.accuracy < 2.5) accdisplay.style.backgroundColor = "green";
+    else if(p2.accuracy < 5) accdisplay.style.backgroundColor = "yellow";
+    else accdisplay.style.backgroundColor = "red";
+
+    if(p2.heading == null) rumo_api = calcularRumo(p1.lat, p1.lon, p2.lat, p2.lon).toFixed(0);
+    else rumo_api = p2.heading.toFixed(0);
+    rumo_apiTxt = rumoCardinal(rumo_api);
+  }
+  const tempoDecorrido = inicioTempo ? Math.floor((Date.now()-inicioTempo)/1000) : 0;
+  const horas = Math.floor(tempoDecorrido / 3600);
+  const minutos = Math.floor((tempoDecorrido % 3600) / 60);
+  const segundos = tempoDecorrido % 60;
+  const tempoFmt = `${horas}h ${minutos}m ${segundos}s`;
+
+  info.innerHTML = `
+    Rumo: ${rumo_api}° (${rumo_apiTxt})<br>
+    Velocidade: ${vel_api} Mph<br>
+    Distância: ${(distanciaTotal/1000).toFixed(2)} km<br>
+    Tempo: ${tempoFmt}
+    `;
+}
+
+// 🔹 Autenticação anônima
+signInAnonymously(auth).catch(err=>console.error(err));
+onAuthStateChanged(auth,user=>{
+  if(user){
+    currentUser = user;
+    document.getElementById("dbstatus").innerText = `Usuário autenticado: ${user.uid}`;
+  }
+});
+
+
+function gerarGPX(pontos) {
+  const header = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="JS GPX Recorder" xmlns="http://www.topografix.com/GPX/1/1">
+<trk><name>Rota</name><trkseg>`;
+  const footer = `</trkseg></trk></gpx>`;
+
+  const pts = pontos.map(p => 
+    `<trkpt lat="${p.lat}" lon="${p.lon}">
+      <time>${p.time}</time>
+      <speed>${p.speed}</speed>
+      <course>${p.heading}</course>
+      <ele>${p.ele}</ele>
+      <accuracy>${p.accuracy}</accuracy>
+    </trkpt>`
+  ).join("\n");
+
+  return header + "\n" + pts + "\n" + footer;
+}
+
+// Inicia gravação GPS
+function iniciarGravacao(){
+  if(!currentUser){
+    alert("Aguardando autenticação...");
+    return;
+  }
+  pontos=[];
+  distanciaTotal=0;
+  inicioTempo=Date.now();
+
+  // Cria nova rota no Firebase
+  const db = getDatabase();
+  const rotasUsuarioRef = ref(db, `rotas/${currentUser.uid}`);
+  rotaRef = push(rotasUsuarioRef);
+  set(rotaRef, { timestamp: new Date().toISOString() });
+
+  cadencia_gravacao = Date.now();
+  watchId = navigator.geolocation.watchPosition(
+    pos=>{
+      let agora = Date.now();
+      if (agora - cadencia_gravacao < 1000) return;
+      else cadencia_gravacao = agora;
+      const ponto={
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        time: new Date().toISOString(),
+        speed: pos.coords.speed,
+        heading: pos.coords.heading,
+        accuracy: pos.coords.accuracy,
+        ele: pos.coords.altitude
+      };
+      pontos.push(ponto);
+      desenharPercurso();
+      atualizarInfo();
+
+      // Envia ponto em tempo real
+      if(rotaRef){
+        const pontoRef = push(ref(db, rotaRef.path + "/pontos"));
+        set(pontoRef, ponto);
+      }
+    },
+    err=>console.error("Erro GPS:",err),
+    { enableHighAccuracy:true, timeout:5000, maximumAge:0 }
+  );
+}
+
+// Para gravação
+function pararGravacao(){
+  if(watchId!==null){
+    navigator.geolocation.clearWatch(watchId);
+    watchId=null;
+  }
+}
+
+async function ativarWakeLock() {
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    console.log("Wake Lock ativo.");
+    wakeLock.addEventListener("release", () => console.log("Wake Lock liberado!"));
+  } catch (err) {
+    console.error("Erro ao ativar Wake Lock:", err);
+  }
+}
+
+async function desativarWakeLock() {
+  if (wakeLock) await wakeLock.release();
+  wakeLock = null;
+}
+
+// Botões
+document.getElementById("startBtn").onclick=()=>{
+  iniciarGravacao();
+  ativarWakeLock();
+  document.getElementById("infoPrec").innerText = "Aguardando GPS...";
+  document.getElementById("startBtn").disabled=true;
+  document.getElementById("stopBtn").disabled=false;
+};
+document.getElementById("stopBtn").onclick=()=>{
+  pararGravacao();
+  desativarWakeLock();
+  document.getElementById("infoPrec").innerText = "Gravação suspensa";
+  document.getElementById("startBtn").disabled=false;
+  document.getElementById("stopBtn").disabled=true;
+
+  const gpx = gerarGPX(pontos);
+  const blob = new Blob([gpx], { type: "application/gpx+xml" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "trilha.gpx";
+  a.click();
+  URL.revokeObjectURL(url);
+
+  alert("Arquivo GPX gerado e baixado!");
+};
+
+img.src = mapaAtual.arquivo;
+img.onload = desenharPercurso;
+
+// Relógio local
+function atualizarRelogio() {
+    const agora = new Date();
+    const horas = String(agora.getHours()).padStart(2,'0');
+    const minutos = String(agora.getMinutes()).padStart(2,'0');
+    const segundos = String(agora.getSeconds()).padStart(2,'0');
+    document.getElementById("relogio").textContent = `${horas}:${minutos}:${segundos}`;
+}
+setInterval(atualizarRelogio, 1000);
+
+</script>
+</body>
+</html>

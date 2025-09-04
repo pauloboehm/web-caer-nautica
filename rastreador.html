@@ -24,6 +24,8 @@
 
   <h2>Gravador de Trilhas (GPX)</h2>
 
+  <div id="dbstatus">Autenticando...</div>
+
   <label for="mapSelect" style="display:none;">Escolha o mapa:</label>
   <select id="mapSelect" style="display:none;">
     <option value="mapaLocal">Mapa local</option>
@@ -43,7 +45,7 @@
   <button id="stopBtn" disabled>Terminar</button>
   <label id="infoPrec">Precisão</label>
   <br>
-  <canvas id="mapCanvas" width=max-content height=auto></canvas>
+  <canvas id="mapCanvas"></canvas>
 
   <div id="relogio">--:--:--</div>
   <div id="info">
@@ -53,13 +55,23 @@
     Distância: 0.0 km
   </div>
 
-  <script>
+  <script src="firedb.js"></script>
+  <script type="module">
+    // Importa apenas o necessário
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    // Inicializa Firebase
+    window.firebase_app = initializeApp(firebaseConfig);
+    window.firebase_db = getDatabase(window.firebase_app);
+  </script>
+
+<script type="module">
     const canvas = document.getElementById("mapCanvas");
     const ctx = canvas.getContext("2d");
     const info = document.getElementById("info");
 
-    window.addEventListener("load", ajustarCanvas);
-    window.addEventListener("resize", ajustarCanvas);
+    window.addEventListener("load", () => { ajustarCanvas(); carregarMapaAtual(); });
+    window.addEventListener("resize", () => { ajustarCanvas(); desenharPercurso(); });
 
     const img = new Image();
     let pontos = [];
@@ -75,6 +87,16 @@
     let mapas = {}; // mapaAtual será definido depois
     let mapaAtual = null;
 
+    //Firebase DB
+    //const auth = getAuth(window.firebase_app);
+    let firedb_uid = null;
+    //Inclui acesso ao DB
+/*    auth.signInAnonymously()
+      .then(user => {
+        firedb_uid = user.user.uid;
+        document.getElementById("dbstatus").innerText = "Competidor autenticado: " + firedb_uid;
+      });
+*/
     function carregarMapa(mapa) {
       mapaAtual = mapas[mapa];
       img.src = mapaAtual.arquivo;
@@ -92,6 +114,8 @@
     }
 
     function desenharPercurso() {
+      if (!img.complete) return; // ainda não carregou
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
@@ -161,6 +185,7 @@
         Tempo: ${tempoFmt}<br>
         Distância: ${(distanciaTotal/1000).toFixed(2)} km
       `;
+      //if(pontos.length > 0) db.ref("competidores/" + firedb_uid).set(pontos[pontos.length-1]);
     }
 
     document.getElementById("raio").addEventListener("change", (e) => {
@@ -235,8 +260,5 @@
     }
     setInterval(atualizarRelogio, 1000);
 
-    // Carrega mapa inicial
-    //carregarMapasJSON();
-    carregarMapaAtual();
   </script>
 </body>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Teste Firebase</title>
+</head>
+<body>
+  <h1>Teste Firebase no GitHub Pages</h1>
+  <button id="salvar">Salvar dado</button>
+  <button id="ler">Ler dado</button>
+  <pre id="saida"></pre>
+
+  <!-- Import do Firebase (SDK v9+, modular) -->
+  <script type="module">
+    // Importa apenas o necessário
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    // 🔹 Cole aqui suas credenciais do Firebase
+    /*
+    const firebaseConfig = {
+      apiKey: "SUA_API_KEY",
+      authDomain: "SEU_PROJETO.firebaseapp.com",
+      databaseURL: "https://SEU_PROJETO-default-rtdb.firebaseio.com",
+      projectId: "SEU_PROJETO",
+      storageBucket: "SEU_PROJETO.appspot.com",
+      messagingSenderId: "SEU_SENDER_ID",
+      appId: "SEU_APP_ID"
+    };
+    */
+    const firebaseConfig = {
+        apiKey: "AIzaSyAmpwm8LGxQZjGRQ4-c4ZSaVoumnkpoXYM",
+        authDomain: "visualizadorcaer.firebaseapp.com",
+        projectId: "visualizadorcaer",
+        storageBucket: "visualizadorcaer.firebasestorage.app",
+        messagingSenderId: "793650767594",
+        appId: "1:793650767594:web:cafad96c6d81b9a3f69993",
+        measurementId: "G-5YNXJ4KP3M"
+    };
+    
+    // Inicializa Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Referências de elementos
+    const btnSalvar = document.getElementById("salvar");
+    const btnLer = document.getElementById("ler");
+    const saida = document.getElementById("saida");
+
+    // Salvar dado no Firebase
+    btnSalvar.addEventListener("click", async () => {
+      await set(ref(db, "teste"), {
+        mensagem: "Olá do GitHub Pages!",
+        data: new Date().toISOString()
+      });
+      saida.textContent = "✅ Dado salvo no Firebase!";
+    });
+
+    // Ler dado do Firebase
+    btnLer.addEventListener("click", async () => {
+      const snapshot = await get(child(ref(db), "teste"));
+      if (snapshot.exists()) {
+        saida.textContent = JSON.stringify(snapshot.val(), null, 2);
+      } else {
+        saida.textContent = "❌ Nenhum dado encontrado.";
+      }
+    });
+  </script>
+</body>
+</html>
