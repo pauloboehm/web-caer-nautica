@@ -62,12 +62,12 @@ let inicioTempo = null;
 let rotaRef = null;
 let cadencia_gravacao = 0;
 
+const canvas = document.getElementById("mapCanvas");
 const viewer = new CircuitCanvas(circuito, { canvasId: "mapCanvas" });
 const info = document.getElementById("info");
 
 // Canvas seguro
 function ajustarCanvas(){
-  const canvas = document.getElementById("mapCanvas");
   canvas.width = window.innerWidth;
   canvas.height = window.innerWidth * 0.6;
   if(viewer) viewer.draw();
