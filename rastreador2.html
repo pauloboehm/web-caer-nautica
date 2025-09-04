@@ -212,9 +212,9 @@ function iniciarGravacao(){
   cadencia_gravacao = Date.now();
   watchId = navigator.geolocation.watchPosition(
     pos=>{
-      let agora = Date.now();
-      if (agora - cadencia_gravacao < 1000) return;
-      else cadencia_gravacao = agora;
+      //let agora = Date.now();
+      //if (agora - cadencia_gravacao < 1000) return;
+      //else cadencia_gravacao = agora;
       const ponto={
         lat: pos.coords.latitude,
         lon: pos.coords.longitude,
