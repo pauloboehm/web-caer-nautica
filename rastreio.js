@@ -66,6 +66,8 @@ function ajustarCanvas() {
   canvas.width = window.innerWidth;
   // altura proporcional (exemplo: metade da largura)
   canvas.height = window.innerWidth;
+  //redesenhar();
+  desenharPercurso();
 }
 
 async function iniciaGravacao_interval(listapontos){
