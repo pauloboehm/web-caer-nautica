@@ -62,18 +62,17 @@ let inicioTempo = null;
 let rotaRef = null;
 let cadencia_gravacao = 0;
 
-const canvas = document.getElementById("mapCanvas");
 const viewer = new CircuitCanvas(circuito, { canvasId: "mapCanvas" });
-const ctx = canvas.getContext("2d");
 const info = document.getElementById("info");
-const img = new Image();
 
 // Canvas seguro
 function ajustarCanvas(){
+  const canvas = document.getElementById("mapCanvas");
   canvas.width = window.innerWidth;
   canvas.height = window.innerWidth * 0.6;
-  //if(img.complete) desenharPercurso();
+  if(viewer) viewer.draw();
 }
+
 window.addEventListener("load", ajustarCanvas);
 window.addEventListener("resize", ajustarCanvas);
 
@@ -84,32 +83,6 @@ function gpsParaCanvas(lat, lon){
   const x = (lon-minLon)/(maxLon-minLon)*canvas.width;
   const y = canvas.height - (lat-minLat)/(maxLat-minLat)*canvas.height;
   return {x,y};
-}
-
-// Desenha percurso
-function desenharPercurso(){
-  if(!img.complete) return;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(img,0,0,canvas.width,canvas.height);
-  if(pontos.length<2) return;
-
-  ctx.beginPath();
-  const inicio = gpsParaCanvas(pontos[0].lat,pontos[0].lon);
-  ctx.moveTo(inicio.x,inicio.y);
-  for(let i=1;i<pontos.length;i++){
-    const p = gpsParaCanvas(pontos[i].lat,pontos[i].lon);
-    ctx.lineTo(p.x,p.y);
-  }
-  ctx.strokeStyle="red";
-  ctx.lineWidth=3;
-  ctx.stroke();
-
-  // último ponto azul
-  const ultimo = gpsParaCanvas(pontos[pontos.length-1].lat,pontos[pontos.length-1].lon);
-  ctx.fillStyle="blue";
-  ctx.beginPath();
-  ctx.arc(ultimo.x,ultimo.y,5,0,2*Math.PI);
-  ctx.fill();
 }
 
 // Distância entre dois pontos
@@ -237,7 +210,6 @@ function iniciarGravacao(){
         ele: pos.coords.altitude
       };
       pontos.push(ponto);
-      //desenharPercurso();
       atualizarInfo();
       viewer.updateLive({ lat, lon, heading });
 
@@ -307,9 +279,6 @@ document.getElementById("baixarBtn").onclick=()=>{
 
   alert("Arquivo GPX gerado e baixado!");
 }
-
-img.src = mapaAtual.arquivo;
-//img.onload = desenharPercurso;
 
 // Relógio local
 function atualizarRelogio() {
