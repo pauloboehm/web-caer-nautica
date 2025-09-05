@@ -9,11 +9,21 @@
   canvas { border: 1px solid black; margin-top: 10px; display:block; }
   #info { margin-top: 10px; font-size: 18px; line-height: 1.6; }
   #relogio { font-size: 20px; margin-top: 5px; font-weight: bold; }
+  @media (max-width: 600px) { /* Celular (largura até 600px) */
+    body { font-size: 20px; }
+    #info { font-size: 36px; line-height: 1.6; }
+    #relogio { font-size: 40px; }
+  }
 </style>
 </head>
 <body>
 
 <h2>Gravador GPX BD-VISUAL</h2>
+
+<label for="competidorSelect">Selecione um competidor:</label>
+<select id="competidorSelect">
+  <option value="">-- Escolha --</option>
+</select>
 
 <div id="dbstatus">Autenticando usuário...</div>
 
@@ -36,11 +46,11 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, push, set, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, get, push, set, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { CircuitCanvas } from "./circuitcanvas.js";
 
-const circuito = {
+let circuito = {
       nome: "Regata Ilha",
       pontos: [
         { lat: -27.5954, lon: -48.5480, hso: 120 },
@@ -60,7 +70,8 @@ let watchId = null;
 let distanciaTotal = 0;
 let inicioTempo = null;
 let rotaRef = null;
-let cadencia_gravacao = 0;
+let cadencia_gravacao = 1000;
+let watch_tempo = 0;
 
 const canvas = document.getElementById("mapCanvas");
 const viewer = new CircuitCanvas(circuito, { canvasId: "mapCanvas" });
@@ -68,8 +79,10 @@ const info = document.getElementById("info");
 
 // Canvas seguro
 function ajustarCanvas(){
+  let escala = 1;
+  if(window.innerHeight < window.innerWidth) escala = 0.6;
   canvas.width = window.innerWidth;
-  canvas.height = window.innerWidth * 0.6;
+  canvas.height = window.innerWidth * escala;
   if(viewer) viewer.draw();
 }
 
@@ -150,12 +163,92 @@ function atualizarInfo(){
     `;
 }
 
+async function carregarCadencia() {
+  try {
+    const cadenciaRef = ref(window.firebase_db, "config/globalSettings/taxaAtualizacao");
+    const snapshot = await get(cadenciaRef);
+
+    if (snapshot.exists()) {
+      cadencia_gravacao = snapshot.val();
+    } else {
+      cadencia_gravacao = 1000; // valor padrão
+      console.warn("Taxa de atualização não encontrada, usando padrão:", cadencia_gravacao);
+    }
+  } catch (err) {
+    console.error("Erro ao buscar taxa de atualização:", err);
+    cadencia_gravacao = 1000; // fallback seguro
+  }
+}
+
+async function carregarCompetidores() {
+  const select = document.getElementById("competidorSelect");
+  select.innerHTML = '<option value="">-- escolha --</option>';
+
+  try {
+    const db = getDatabase();
+    const snapshot = await get(ref(db, "competidores"));
+    if (!snapshot.exists()) return;
+
+    snapshot.forEach(child => {
+      const opt = document.createElement("option");
+      opt.value = child.key;       // ID do competidor
+      opt.textContent = child.key; // Nome visível
+      const data = child.val();
+      opt.textContent = data.nome ?? child.key; // mostra nome ou chave
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error("Erro ao carregar competidores:", err);
+  }
+}
+
+async function carregarCircuito(circuitoId) {
+  if (!circuitoId) return;
+  try {
+    const circuitoRef = ref(window.firebase_db, `circuitos/${circuitoId}`);
+    const snapshot = await get(circuitoRef);
+
+    if (snapshot.exists()) {
+      circuito = snapshot.val();
+      console.log("🏁 Circuito carregado:", circuito);
+
+      if (viewer) viewer.destroy();
+      viewer = new CircuitCanvas(circuito, { canvasId: "mapCanvas" });
+    } else {
+      console.warn("Circuito não encontrado:", circuitoId);
+    }
+  } catch (err) {
+    console.error("Erro ao carregar circuito:", err);
+  }
+}
+
 // 🔹 Autenticação anônima
 signInAnonymously(auth).catch(err=>console.error(err));
 onAuthStateChanged(auth,user=>{
   if(user){
     currentUser = user;
     document.getElementById("dbstatus").innerText = `Usuário autenticado: ${user.uid}`;
+    carregarCadencia();
+    carregarCompetidores();
+  }
+});
+
+// Quando o usuário selecionar um competidor
+document.getElementById("competidorSelect").addEventListener("change", async (e) => {
+  const competidorId = e.target.value;
+  if (!competidorId) return;
+  try {
+    const competidorRef = ref(window.firebase_db, `competidores/${competidorId}`);
+    const snapshot = await get(competidorRef);
+
+    if (snapshot.exists()) {
+      const comp = snapshot.val();
+      if (comp.circuitoAtual) carregarCircuito(comp.circuitoAtual);
+    } else {
+      console.warn("Competidor não encontrado:", competidorId);
+    }
+  } catch (err) {
+    console.error("Erro ao buscar competidor:", err);
   }
 });
 
@@ -194,12 +287,12 @@ function iniciarGravacao(){
   rotaRef = push(rotasUsuarioRef);
   set(rotaRef, { timestamp: new Date().toISOString() });
 
-  cadencia_gravacao = Date.now();
+  watch_tempo = Date.now();
   watchId = navigator.geolocation.watchPosition(
     pos=>{
       let agora = Date.now();
-      if (agora - cadencia_gravacao < 1000) return;
-      else cadencia_gravacao = agora;
+      if (agora - watch_tempo < cadencia_gravacao) return;
+      else watch_tempo = agora;
       const ponto={
         lat: pos.coords.latitude,
         lon: pos.coords.longitude,
@@ -270,13 +363,11 @@ document.getElementById("baixarBtn").onclick=()=>{
   const gpx = gerarGPX(pontos);
   const blob = new Blob([gpx], { type: "application/gpx+xml" });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
   a.href = url;
   a.download = "trilha.gpx";
   a.click();
   URL.revokeObjectURL(url);
-
   alert("Arquivo GPX gerado e baixado!");
 }
 

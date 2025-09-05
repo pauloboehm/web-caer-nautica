@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Teste Firebase DB</title>
+</head>
+<body>
+  <h2>Teste Firebase Realtime Database</h2>
+  <div id="status">Autenticando...</div>
+  <ul id="listaCompetidores"></ul>
+
+  <script src="firedb.js"></script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    // Inicializa Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+
+    const status = document.getElementById("status");
+    const lista = document.getElementById("listaCompetidores");
+
+    // Autenticação anônima
+    signInAnonymously(auth).catch(err => console.error(err));
+
+    onAuthStateChanged(auth, async user => {
+      if (user) {
+        status.textContent = `Autenticado: ${user.uid}`;
+        // Lê competidores
+        try {
+          const snapshot = await get(ref(db, "competidores"));
+          if (!snapshot.exists()) {
+            lista.innerHTML = "<li>Nenhum competidor encontrado.</li>";
+            return;
+          }
+
+          lista.innerHTML = ""; // limpa lista
+          snapshot.forEach(childSnap => {
+            const li = document.createElement("li");
+            const data = childSnap.val();
+            li.textContent = data.nome ?? childSnap.key; // mostra nome ou chave
+            lista.appendChild(li);
+          });
+        } catch (err) {
+          status.textContent = "Erro ao ler competidores";
+          console.error(err);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
+

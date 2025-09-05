@@ -20,15 +20,31 @@ export class CircuitCanvas {
       this.projector = this.#makeProjector(circuit.pontos);
       this.center = { x: 0, y: 0 };
       this.scale = 1;
-  
+
+      this._resizeHandler = () => this.#fixDPI(); // salvar handler para remover depois
       this.#fixDPI();
-      window.addEventListener("resize", () => this.#fixDPI());
+      window.addEventListener("resize", this._resizeHandler);
       this.#fitView();
       this.draw();
     }
   
     // ================== API pública ==================
-  
+    destroy() {
+      if (this._resizeHandler) {
+        window.removeEventListener("resize", this._resizeHandler);
+        this._resizeHandler = null;
+      }
+      if (this.ctx) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      }
+      this.ctx = null;
+      this.canvas = null;
+      this.projector = null;
+      this.circuit = null;
+      this.trail = [];
+      this.current = null;
+    }
+
     updateLive({ lat, lon, heading }) {
       if (!this.projector) return;
       this.current = { lat, lon, heading };
