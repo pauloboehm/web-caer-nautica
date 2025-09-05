@@ -211,9 +211,7 @@ async function carregarCircuito(circuitoId) {
     if (snapshot.exists()) {
       circuito = snapshot.val();
       console.log("🏁 Circuito carregado:", circuito);
-
-      if (viewer) viewer.destroy();
-      viewer = new CircuitCanvas(circuito, { canvasId: "mapCanvas" });
+      viewer.reset(circuito, { canvasId: "mapCanvas", follow: false });
     } else {
       console.warn("Circuito não encontrado:", circuitoId);
     }
