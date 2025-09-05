@@ -1,0 +1,95 @@
+{
+  "config": {
+    "globalSettings": {
+      "taxaAtualizacao": 1000
+    }
+  },
+    "circuitos": {
+      "circuito1": {
+        "nome": "LanchaRapida",
+        "pontos": [
+          { "lat": -15.7819, "lon": -47.8468, "hso": 0 },
+          { "lat": -15.7776, "lon": -47.8496, "hso": 126 },
+          { "lat": -15.7727, "lon": -47.8429, "hso": 226 },
+          { "lat": -15.7675, "lon": -47.8451, "hso": 319 },
+          { "lat": -15.7668, "lon": -47.842, "hso": 415 },
+          { "lat": -15.776, "lon": -47.8361, "hso": 573 },
+          { "lat": -15.7762, "lon": -47.8272, "hso": 657 },
+          { "lat": -15.7725, "lon": -47.8234, "hso": 755 },
+          { "lat": -15.7779, "lon": -47.8187, "hso": 846 },
+          { "lat": -15.7822, "lon": -47.8226, "hso": 908 },
+          { "lat": -15.7812, "lon": -47.8331, "hso": 1034 },
+          { "lat": -15.7788, "lon": -47.8396, "hso": 1138 },
+          { "lat": -15.7825, "lon": -47.8416, "hso": 1217 }
+        ]
+      },
+      "circuito2": {
+        "nome": "LanchaCruzeiro",
+        "pontos": [
+          { "lat": -15.7819, "lon": -47.8468, "hso": 0 },
+          { "lat": -15.7776, "lon": -47.8496, "hso": 126 },
+          { "lat": -15.7727, "lon": -47.8429, "hso": 226 },
+          { "lat": -15.7675, "lon": -47.8451, "hso": 319 },
+          { "lat": -15.7668, "lon": -47.842, "hso": 415 },
+          { "lat": -15.776, "lon": -47.8361, "hso": 573 },
+          { "lat": -15.7762, "lon": -47.8272, "hso": 657 },
+          { "lat": -15.7725, "lon": -47.8234, "hso": 755 },
+          { "lat": -15.7779, "lon": -47.8187, "hso": 846 },
+          { "lat": -15.7822, "lon": -47.8226, "hso": 908 },
+          { "lat": -15.7812, "lon": -47.8331, "hso": 1034 },
+          { "lat": -15.7788, "lon": -47.8396, "hso": 1138 },
+          { "lat": -15.7825, "lon": -47.8416, "hso": 1217 }
+        ]
+      },
+      "circuito3": {
+        "nome": "MotoAquatica",
+        "pontos": [
+          { "lat": -15.7819, "lon": -47.8468, "hso": 0 },
+          { "lat": -15.7776, "lon": -47.8496, "hso": 126 },
+          { "lat": -15.7727, "lon": -47.8429, "hso": 226 },
+          { "lat": -15.7675, "lon": -47.8451, "hso": 319 },
+          { "lat": -15.7668, "lon": -47.842, "hso": 415 },
+          { "lat": -15.776, "lon": -47.8361, "hso": 573 },
+          { "lat": -15.7762, "lon": -47.8272, "hso": 657 },
+          { "lat": -15.7725, "lon": -47.8234, "hso": 755 },
+          { "lat": -15.7779, "lon": -47.8187, "hso": 846 },
+          { "lat": -15.7822, "lon": -47.8226, "hso": 908 },
+          { "lat": -15.7812, "lon": -47.8331, "hso": 1034 },
+          { "lat": -15.7788, "lon": -47.8396, "hso": 1138 },
+          { "lat": -15.7825, "lon": -47.8416, "hso": 1217 }
+        ]
+      }
+    },
+    "competidores": {
+      "competidor1": {
+        "nome": "GustavoBoehm",
+        "modalidades": ["vela/motor"],
+        "circuitoAtual": "LanchaRapida"
+      },
+      "competidor2": {
+        "nome": "PerdonaLancha1",
+        "modalidades": ["vela/motor"],
+        "circuitoAtual": "LanchaCruzeiro"
+      },
+      "competidor3": {
+        "nome": "Schneider",
+        "modalidades": ["vela/motor"],
+        "circuitoAtual": "LanchaCruzeiro"
+      },
+      "competidor4": {
+        "nome": "Machado",
+        "modalidades": ["vela/motor"],
+        "circuitoAtual": "LanchaRapida"
+      },
+      "competidor5": {
+        "nome": "PerdonaJet2",
+        "modalidades": ["vela/motor"],
+        "circuitoAtual": "MotoAquatica"
+      },
+      "competidor6": {
+        "nome": "PerdonaJet1",
+        "modalidades": ["vela/motor"],
+        "circuitoAtual": "MotoAquatica"
+      }
+    }
+}

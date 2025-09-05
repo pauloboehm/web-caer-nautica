@@ -40,7 +40,7 @@ export class CircuitCanvas {
       this._resizeListenerAdded = true;
     }
     if (!this._clickListenerAdded) {
-      window.addEventListener("click", this._clickHandler);
+      this.canvas.addEventListener("click", this._clickHandler);
       this._clickListenerAdded = true;
     }
   }
@@ -144,7 +144,8 @@ export class CircuitCanvas {
 
     const toXY = (lat, lon) => ({
       x: (lon - minLon) * cosLat,
-      y: (lat - minLat)
+//      y: (lat - minLat)
+      y: (maxLat - lat)
     });
 
     const xy = points.map(p => toXY(p.lat, p.lon));

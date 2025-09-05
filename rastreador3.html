@@ -160,7 +160,7 @@ function atualizarInfo(){
     Rumo: ${rumo_api}° (${rumo_apiTxt})<br>
     Velocidade: ${vel_api} Mph<br>
     Distância: ${(distanciaTotal/1000).toFixed(2)} km<br>
-    Tempo: ${tempoFmt}
+    Tempo: ${tempoFmt}<br><br>
     `;
 }
 
@@ -192,14 +192,49 @@ async function carregarCompetidores() {
 
     snapshot.forEach(child => {
       const opt = document.createElement("option");
-      opt.value = child.key;       // ID do competidor
-      opt.textContent = child.key; // Nome visível
+      opt.value = child.key;     // ID do competidor
       const data = child.val();
       opt.textContent = data.nome ?? child.key; // mostra nome ou chave
       select.appendChild(opt);
     });
   } catch (err) {
     console.error("Erro ao carregar competidores:", err);
+  }
+}
+
+async function carregarCircuitoPorNome(nomeCircuito) {
+  if (!nomeCircuito) return null;
+  try {
+    const db = window.firebase_db;
+    const snapshot = await get(ref(db, "circuitos"));
+    if (snapshot.exists()) {
+      let circuitoEncontrado = null;
+      let chaveCircuito = null;
+      snapshot.forEach(child => {
+        const data = child.val();
+        if (data.nome === nomeCircuito) {
+          chaveCircuito = child.key;   // "c1"
+          circuitoEncontrado = data;   // { nome: "Circuito Teste", pontos: [...] }
+        }
+      });
+      if (circuitoEncontrado) {
+        console.log("🏁 Circuito encontrado:", chaveCircuito, circuitoEncontrado);
+        if (viewer) {
+          viewer.reset(circuitoEncontrado, { 
+            canvasId: "mapCanvas", 
+            follow: true, 
+            rotateToHeading: true 
+          });
+        }
+        return { id: chaveCircuito, ...circuitoEncontrado };
+      } else {
+        console.warn("Circuito com nome não encontrado:", nomeCircuito);
+        return null;
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao buscar circuito por nome:", err);
+    return null;
   }
 }
 
@@ -242,7 +277,7 @@ document.getElementById("competidorSelect").addEventListener("change", async (e)
 
     if (snapshot.exists()) {
       const comp = snapshot.val();
-      if (comp.circuitoAtual) carregarCircuito(comp.circuitoAtual);
+      if (comp.circuitoAtual) carregarCircuitoPorNome(comp.circuitoAtual);
     } else {
       console.warn("Competidor não encontrado:", competidorId);
     }
@@ -285,6 +320,9 @@ function iniciarGravacao(){
   const rotasUsuarioRef = ref(db, `rotas/${currentUser.uid}`);
   rotaRef = push(rotasUsuarioRef);
   set(rotaRef, { timestamp: new Date().toISOString() });
+  const selcomp = document.getElementById("competidorSelect");
+  let nome_barco = selcomp.options[selcomp.selectedIndex].text;
+  set(rotaRef, { nomebarco: nome_barco });
 
   watch_tempo = Date.now();
   watchId = navigator.geolocation.watchPosition(
