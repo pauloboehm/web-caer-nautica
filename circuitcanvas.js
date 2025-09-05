@@ -29,6 +29,7 @@ export class CircuitCanvas {
 
     // DPI e fit view
     this._resizeHandler ??= () => this.#fixDPI(); // só cria se não existir
+    this._clickHandler ??= (e) => this.#handleClick(e); // só cria se não existir
     this.#fixDPI();
     this.#fitView();
     this.draw();
@@ -37,6 +38,10 @@ export class CircuitCanvas {
     if (!this._resizeListenerAdded) {
       window.addEventListener("resize", this._resizeHandler);
       this._resizeListenerAdded = true;
+    }
+    if (!this._clickListenerAdded) {
+      window.addEventListener("click", this._clickHandler);
+      this._clickListenerAdded = true;
     }
   }
 
@@ -109,6 +114,17 @@ export class CircuitCanvas {
   }
 
   // ================== Internos ==================
+  #handleClick(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const mid = rect.width / 2;
+    if (x > mid) {
+      this.zoom(1.2); // lado direito → zoom in
+    } else {
+      this.zoom(0.8); // lado esquerdo → zoom out
+    }
+  }
+
   #fixDPI() {
     const ratio = window.devicePixelRatio || 1;
     const cssW = this.canvas.clientWidth || this.canvas.width;
