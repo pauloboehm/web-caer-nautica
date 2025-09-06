@@ -69,9 +69,10 @@ export class CircuitCanvas {
 
   updateLive({ lat, lon, heading }) {
     if (!this.projector) return;
-    this.current = { lat, lon, heading };
+    const validHeading = (typeof heading === "number") ? heading : this.headingDeg;
+    this.current = { lat, lon, heading: validHeading };
     this.#addTrail(lat, lon);
-    this.headingDeg = typeof heading === "number" ? heading : this.headingDeg;
+    this.headingDeg = validHeading;
     this.draw();
   }
 
@@ -243,10 +244,17 @@ export class CircuitCanvas {
     if (!this.current) return;
     const p = this.#worldToScreen(this.projector.toXY(this.current.lat, this.current.lon));
 
+    let x = p.x, y = p.y;
+    if (this.follow) {
+      x = (this.canvas.clientWidth || this.canvas.width) / 2;
+      y = (this.canvas.clientHeight || this.canvas.height) / 2;
+    }
+
     this.ctx.save();
-    this.ctx.translate(p.x, p.y);
+    this.ctx.translate(x, y);
     const size = 12;
-    if (this.rotateToHeading) ctx.rotate(current.heading * Math.PI / 180);
+    if (this.rotateToHeading && typeof this.current.heading === "number")
+      this.ctx.rotate(this.current.heading * Math.PI / 180);
     this.ctx.beginPath();
     this.ctx.moveTo(0, -size);
     this.ctx.lineTo(size * 0.6, size);
@@ -264,6 +272,7 @@ export class CircuitCanvas {
 
   #drawCompass() {
     if (!this.rotateToHeading) return;
+    if (!this.current || typeof this.current.heading !== "number") return;
     const W = this.canvas.clientWidth || this.canvas.width;
     this.ctx.save();
     this.ctx.translate(W - 50, 50);
