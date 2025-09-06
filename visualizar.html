@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Regata em tempo real</title>
+  <title>Monitoramento de Rotas</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-rotatedmarker/leaflet.rotatedMarker.js"></script>
@@ -25,21 +25,18 @@
   </style>
 </head>
 <body>
-  <h2>⛵ Regata em tempo real</h2>
-  <button id="btnCentralizar">🔍 Centralizar nos barcos</button>
+  <h2>⛵ Monitoramento em tempo real</h2>
+  <button id="btnCentralizar">🔍 Centralizar nos competidores</button>
   <div id="map"></div>
-  <script src="firedb.js"></script>     // 🔹 Firebase
-  <script src="visualizador.js"></script>     // 🔹 Firebase
+
+  <script src="firedb.js"></script>
+
   <script>
     // 🔹 Mapa
     const map = L.map('map').setView([-23.55, -46.63], 12);
 
-    const osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
-    const seamap = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
-      attribution: 'Map data © OpenSeaMap contributors'
     }).addTo(map);
 
     // 🔹 Ícone de barco
@@ -49,40 +46,104 @@
       iconAnchor: [16, 16]
     });
 
-    // 🔹 Barcos
-    const barcos = {};
+    // 🔹 Competidores ativos no mapa
+    const competidores = {}; 
+    // { idCompetidor: { marker, polyline, ultimosPontos[], lastUpdate, color } }
 
-    db.ref("competidores").on("value", (snapshot) => {
-      const data = snapshot.val() || {};
-      Object.keys(data).forEach(id => {
-        const c = data[id];
-        if (!c.lat || !c.lon) return;
+    // Função para gerar cor única a partir do id
+    function colorFromId(id) {
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) {
+        hash = id.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const hue = hash % 360;
+      return `hsl(${hue}, 80%, 50%)`; // cor vibrante
+    }
 
-        if (!barcos[id]) {
-          barcos[id] = L.marker([c.lat, c.lon], {
-            icon: barcoIcon,
-            rotationAngle: c.direcao || 0,
-            rotationOrigin: "center"
-          }).addTo(map)
-          .bindPopup(`<b>${id}</b><br>Vel: ${c.velocidade || 0} mph<br>Dir: ${c.direcao || 0}°`);
-        } else {
-          barcos[id].setLatLng([c.lat, c.lon]);
-          barcos[id].setRotationAngle(c.direcao || 0);
-          barcos[id].setPopupContent(`<b>${id}</b><br>Vel: ${c.velocidade || 0} mph<br>Dir: ${c.direcao || 0}°`);
-        }
+    // Escuta alterações no nó "rotas"
+    db.ref("rotas").on("value", (snapshot) => {
+      const rotas = snapshot.val() || {};
+
+      Object.keys(rotas).forEach(dispositivo => {
+        const trechos = rotas[dispositivo];
+        Object.keys(trechos).forEach(trechoId => {
+          const trecho = trechos[trechoId];
+          if (!trecho || !trecho.pontos) return;
+
+          const nome = trecho.nome || dispositivo;
+          const pontos = Object.values(trecho.pontos);
+          const ultimo = pontos[pontos.length - 1];
+
+          if (!ultimo || !ultimo.lat || !ultimo.lon) return;
+
+          const lat = ultimo.lat;
+          const lon = ultimo.lon;
+          const rumo = ultimo.rumo || 0;
+          const timestamp = ultimo.timestamp || Date.now();
+
+          const idCompetidor = dispositivo + "_" + trechoId;
+
+          // cria se não existir
+          if (!competidores[idCompetidor]) {
+            const cor = colorFromId(idCompetidor);
+            competidores[idCompetidor] = {
+              marker: L.marker([lat, lon], {
+                icon: barcoIcon,
+                rotationAngle: rumo,
+                rotationOrigin: "center"
+              }).addTo(map)
+              .bindPopup(`<b>${nome}</b><br>Rumo: ${rumo}°`)
+              .bindTooltip(nome, { permanent: true, direction: "right", offset: [10,0] }),
+
+              polyline: L.polyline([[lat, lon]], { color: cor, weight: 3 }).addTo(map),
+
+              ultimosPontos: [{ lat, lon }],
+              lastUpdate: timestamp,
+              color: cor
+            };
+          } else {
+            // atualiza posição e popup
+            competidores[idCompetidor].marker.setLatLng([lat, lon]);
+            competidores[idCompetidor].marker.setRotationAngle(rumo);
+            competidores[idCompetidor].marker.setPopupContent(`<b>${nome}</b><br>Rumo: ${rumo}°`);
+            competidores[idCompetidor].marker.setTooltipContent(nome);
+
+            // atualiza trilha
+            competidores[idCompetidor].ultimosPontos.push({ lat, lon });
+            if (competidores[idCompetidor].ultimosPontos.length > 300) {
+              competidores[idCompetidor].ultimosPontos.shift();
+            }
+            const coords = competidores[idCompetidor].ultimosPontos.map(p => [p.lat, p.lon]);
+            competidores[idCompetidor].polyline.setLatLngs(coords);
+
+            // atualiza tempo
+            competidores[idCompetidor].lastUpdate = timestamp;
+          }
+        });
       });
     });
 
+    // 🔹 Remove competidores inativos (>1 minuto sem atualização)
+    setInterval(() => {
+      const agora = Date.now();
+      Object.keys(competidores).forEach(id => {
+        if (agora - competidores[id].lastUpdate > 60000) {
+          map.removeLayer(competidores[id].marker);
+          map.removeLayer(competidores[id].polyline);
+          delete competidores[id];
+        }
+      });
+    }, 10000);
+
     // 🔹 Função para centralizar
     function centralizarBarcos() {
-      const coords = Object.values(barcos).map(m => m.getLatLng());
+      const coords = Object.values(competidores).map(c => c.marker.getLatLng());
       if (coords.length > 0) {
         const bounds = L.latLngBounds(coords);
-        map.fitBounds(bounds.pad(0.2)); // margem extra
+        map.fitBounds(bounds.pad(0.2));
       }
     }
 
-    // Botão
     document.getElementById("btnCentralizar").addEventListener("click", centralizarBarcos);
   </script>
 </body>
