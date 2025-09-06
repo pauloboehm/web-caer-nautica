@@ -138,7 +138,7 @@ function estimadaProximoPonto(lat, lon, vel) {
   atualizarProximoPonto(lat, lon);
   const proxpt = circuito.pontos[proximoPonto];
   let dist = distanciaMetros(lat, lon, proxpt.lat, proxpt.lon);
-  const velMS = Math.max(velMph * 1609.34 / 3600, 0.1); // evita divisão por zero 
+  const velMS = Math.max(vel * 1609.34 / 3600, 0.1); // evita divisão por zero 
   const agora = new Date();
   const msFuturo = agora.getTime() + (dist / velMS) * 1000;
   const tempoDecorrido = new Date(msFuturo);
