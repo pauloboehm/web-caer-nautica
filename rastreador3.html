@@ -145,7 +145,7 @@ function estimadaProximoPonto(lat, lon, vel) {
   const horas = String(tempoDecorrido.getHours()).padStart(2,'0');
   const minutos = String(tempoDecorrido.getMinutes()).padStart(2,'0');
   const segundos = String(tempoDecorrido.getSeconds()).padStart(2,'0');
-  return `${horas}:${minutos}:${segundos} - ${dist.toFixed(1)} m`;
+  return `${horas}:${minutos}:${segundos}<br>D[${proximoPonto}]:${dist.toFixed(1)} m`;
 }
 
 // Atualiza informações
