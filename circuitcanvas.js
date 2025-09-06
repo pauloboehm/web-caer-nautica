@@ -246,7 +246,7 @@ export class CircuitCanvas {
     this.ctx.save();
     this.ctx.translate(p.x, p.y);
     const size = 12;
-    if (rotateToHeading) ctx.rotate(current.heading * Math.PI / 180);
+    if (this.rotateToHeading) ctx.rotate(current.heading * Math.PI / 180);
     this.ctx.beginPath();
     this.ctx.moveTo(0, -size);
     this.ctx.lineTo(size * 0.6, size);
@@ -271,7 +271,7 @@ export class CircuitCanvas {
     this.ctx.arc(0, 0, 22, 0, Math.PI * 2);
     this.ctx.stroke();
     this.ctx.save();
-    this.ctx.rotate(current.heading * Math.PI / 180);
+    this.ctx.rotate(this.current.heading * Math.PI / 180);
     this.ctx.beginPath();
     this.ctx.moveTo(0, -18);  // ponta
     this.ctx.lineTo(6, 6);
