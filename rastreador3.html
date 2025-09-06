@@ -73,6 +73,7 @@ let inicioTempo = null;
 let rotaRef = null;
 let cadencia_gravacao = 1000;
 let watch_tempo = 0;
+let proximoPonto = 0;
 
 const canvas = document.getElementById("mapCanvas");
 const viewer = new CircuitCanvas(circuito, { canvasId: "mapCanvas" });
@@ -127,11 +128,32 @@ function rumoCardinal(brng) {
   return dirs[Math.round(brng / 45) % 8];
 }
 
+function atualizarProximoPonto(lat, lon){
+  if(distanciaMetros(lat, lon, circuito.pontos[proximoPonto].lat, circuito.pontos[proximoPonto].lon) < 10)
+    proximoPonto++;
+}
+
+function estimadaProximoPonto(lat, lon, vel) {
+  if(proximoPonto >= circuito.pontos.length) return `Circuito completo`;
+  atualizarProximoPonto(lat, lon);
+  const proxpt = circuito.pontos[proximoPonto];
+  let dist = distanciaMetros(lat, lon, proxpt.lat, proxpt.lon);
+  const velMS = Math.max(velMph * 1609.34 / 3600, 0.1); // evita divisão por zero 
+  const agora = new Date();
+  const msFuturo = agora.getTime() + (dist / velMS) * 1000;
+  const tempoDecorrido = new Date(msFuturo);
+  const horas = String(tempoDecorrido.getHours()).padStart(2,'0');
+  const minutos = String(tempoDecorrido.getMinutes()).padStart(2,'0');
+  const segundos = String(tempoDecorrido.getSeconds()).padStart(2,'0');
+  return `${horas}:${minutos}:${segundos} - ${dist.toFixed(1)} m`;
+}
+
 // Atualiza informações
 function atualizarInfo(){
   let vel_api=0;
   let rumo_api = "-";
   let rumo_apiTxt = "-";
+  let proxFmt = "-";
   if(pontos.length>=2){
     const p1=pontos[pontos.length-2];
     const p2=pontos[pontos.length-1];
@@ -149,6 +171,9 @@ function atualizarInfo(){
     if(p2.heading == null) rumo_api = calcularRumo(p1.lat, p1.lon, p2.lat, p2.lon).toFixed(0);
     else rumo_api = p2.heading.toFixed(0);
     rumo_apiTxt = rumoCardinal(rumo_api);
+
+    proxFmt = estimadaProximoPonto(p2.lat, p2.lon, vel_api);
+    //proxFmt = estimadaProximoPonto(p2.lat, p2.lon, p2.speed);
   }
   const tempoDecorrido = inicioTempo ? Math.floor((Date.now()-inicioTempo)/1000) : 0;
   const horas = Math.floor(tempoDecorrido / 3600);
@@ -159,8 +184,9 @@ function atualizarInfo(){
   info.innerHTML = `
     Rumo: ${rumo_api}° (${rumo_apiTxt})<br>
     Velocidade: ${vel_api} Mph<br>
+    ETA[${proximoPonto}]: ${proxFmt}<br>
     Distância: ${(distanciaTotal/1000).toFixed(2)} km<br>
-    Tempo: ${tempoFmt}<br><br>
+    Tempo: ${tempoFmt}<br>
     `;
 }
 
@@ -313,6 +339,7 @@ function iniciarGravacao(){
   }
   pontos=[];
   distanciaTotal=0;
+  proximoPonto = 0;
   inicioTempo=Date.now();
 
   // Cria nova rota no Firebase
