@@ -6,8 +6,8 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-rotatedmarker/leaflet.rotatedMarker.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
   <style>
     #map { width: 100%; height: 90vh; }
     #btnCentralizar {
@@ -30,112 +30,140 @@
   <div id="map"></div>
 
   <script src="firedb.js"></script>
-
   <script>
+    // 🔹 Inicializa Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     // 🔹 Mapa
     const map = L.map('map').setView([-23.55, -46.63], 12);
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // 🔹 Ícone de barco
+    // 🔹 Ícone do barco
     const barcoIcon = L.icon({
       iconUrl: "https://cdn-icons-png.flaticon.com/512/77/77521.png",
       iconSize: [32, 32],
       iconAnchor: [16, 16]
     });
 
-    // 🔹 Competidores ativos no mapa
-    const competidores = {}; 
-    // { idCompetidor: { marker, polyline, ultimosPontos[], lastUpdate, color } }
+    // 🔹 Competidores ativos
+    const competidores = {}; // { idCompetidor: { marker, polyline, ultimosPontos[], lastUpdate, color, listenerCreated } }
 
-    // Função para gerar cor única a partir do id
+    // 🔹 Função para gerar cor única
     function colorFromId(id) {
       let hash = 0;
       for (let i = 0; i < id.length; i++) {
         hash = id.charCodeAt(i) + ((hash << 5) - hash);
       }
       const hue = hash % 360;
-      return `hsl(${hue}, 80%, 50%)`; // cor vibrante
+      return `hsl(${hue}, 80%, 50%)`;
     }
 
-    // Escuta alterações no nó "rotas"
-    db.ref("rotas").on("value", (snapshot) => {
-      const rotas = snapshot.val() || {};
+    // 🔹 Função que atualiza ou cria competidor
+    function atualizarCompetidor(dispositivo, trechoId, nome, ponto) {
+      const lat = ponto.lat;
+      const lon = ponto.lon;
+      const rumo = ponto.rumo || 0;
+      const timestamp = ponto.timestamp || Date.now();
+      const idCompetidor = dispositivo + "_" + trechoId;
 
+      if (!competidores[idCompetidor]?.marker) {
+        const cor = colorFromId(idCompetidor);
+        competidores[idCompetidor] = {
+          marker: L.marker([lat, lon], {
+            icon: barcoIcon,
+            rotationAngle: rumo,
+            rotationOrigin: "center"
+          }).addTo(map)
+          .bindPopup(`<b>${nome}</b><br>Rumo: ${rumo}°`)
+          .bindTooltip(nome, { permanent: true, direction: "right", offset: [10,0] }),
+
+          polyline: L.polyline([[lat, lon]], { color: cor, weight: 3 }).addTo(map),
+
+          ultimosPontos: [{ lat, lon }],
+          lastUpdate: timestamp,
+          color: cor,
+          listenerCreated: true
+        };
+      } else {
+        // atualiza marcador
+        competidores[idCompetidor].marker.setLatLng([lat, lon]);
+        competidores[idCompetidor].marker.setRotationAngle(rumo);
+        competidores[idCompetidor].marker.setPopupContent(`<b>${nome}</b><br>Rumo: ${rumo}°`);
+        competidores[idCompetidor].marker.setTooltipContent(nome);
+
+        // atualiza trilha
+        competidores[idCompetidor].ultimosPontos.push({ lat, lon });
+        if (competidores[idCompetidor].ultimosPontos.length > 300) {
+          competidores[idCompetidor].ultimosPontos.shift();
+        }
+        const coords = competidores[idCompetidor].ultimosPontos.map(p => [p.lat, p.lon]);
+        competidores[idCompetidor].polyline.setLatLngs(coords);
+
+        // atualiza tempo
+        competidores[idCompetidor].lastUpdate = timestamp;
+      }
+    }
+
+    // 🔹 Função que adiciona listener em um trecho específico
+    function escutarTrecho(dispositivo, trechoId, nome) {
+      db.ref(`rotas/${dispositivo}/${trechoId}/pontos`).on("child_added", pontoSnap => {
+        const ponto = pontoSnap.val();
+        if (!ponto || !ponto.lat || !ponto.lon) return;
+        atualizarCompetidor(dispositivo, trechoId, nome, ponto);
+      });
+    }
+
+    // 🔹 Inicializa listeners para todos os trechos existentes
+    db.ref("rotas").once("value", snapshot => {
+      const rotas = snapshot.val() || {};
       Object.keys(rotas).forEach(dispositivo => {
         const trechos = rotas[dispositivo];
         Object.keys(trechos).forEach(trechoId => {
           const trecho = trechos[trechoId];
           if (!trecho || !trecho.pontos) return;
-
-          const nome = trecho.nome || dispositivo;
-          const pontos = Object.values(trecho.pontos);
-          const ultimo = pontos[pontos.length - 1];
-
-          if (!ultimo || !ultimo.lat || !ultimo.lon) return;
-
-          const lat = ultimo.lat;
-          const lon = ultimo.lon;
-          const rumo = ultimo.rumo || 0;
-          const timestamp = ultimo.timestamp || Date.now();
-
-          const idCompetidor = dispositivo + "_" + trechoId;
-
-          // cria se não existir
-          if (!competidores[idCompetidor]) {
-            const cor = colorFromId(idCompetidor);
-            competidores[idCompetidor] = {
-              marker: L.marker([lat, lon], {
-                icon: barcoIcon,
-                rotationAngle: rumo,
-                rotationOrigin: "center"
-              }).addTo(map)
-              .bindPopup(`<b>${nome}</b><br>Rumo: ${rumo}°`)
-              .bindTooltip(nome, { permanent: true, direction: "right", offset: [10,0] }),
-
-              polyline: L.polyline([[lat, lon]], { color: cor, weight: 3 }).addTo(map),
-
-              ultimosPontos: [{ lat, lon }],
-              lastUpdate: timestamp,
-              color: cor
-            };
-          } else {
-            // atualiza posição e popup
-            competidores[idCompetidor].marker.setLatLng([lat, lon]);
-            competidores[idCompetidor].marker.setRotationAngle(rumo);
-            competidores[idCompetidor].marker.setPopupContent(`<b>${nome}</b><br>Rumo: ${rumo}°`);
-            competidores[idCompetidor].marker.setTooltipContent(nome);
-
-            // atualiza trilha
-            competidores[idCompetidor].ultimosPontos.push({ lat, lon });
-            if (competidores[idCompetidor].ultimosPontos.length > 300) {
-              competidores[idCompetidor].ultimosPontos.shift();
-            }
-            const coords = competidores[idCompetidor].ultimosPontos.map(p => [p.lat, p.lon]);
-            competidores[idCompetidor].polyline.setLatLngs(coords);
-
-            // atualiza tempo
-            competidores[idCompetidor].lastUpdate = timestamp;
-          }
+          const nome = trecho.nomebarco || dispositivo;
+          escutarTrecho(dispositivo, trechoId, nome);
         });
       });
     });
 
-    // 🔹 Remove competidores inativos (>1 minuto sem atualização)
-    setInterval(() => {
-      const agora = Date.now();
-      Object.keys(competidores).forEach(id => {
-        if (agora - competidores[id].lastUpdate > 60000) {
-          map.removeLayer(competidores[id].marker);
-          map.removeLayer(competidores[id].polyline);
-          delete competidores[id];
+    // 🔹 Listener para novos dispositivos ou trechos
+    db.ref("rotas").on("child_added", snapshotDispositivo => {
+      const dispositivo = snapshotDispositivo.key;
+      const trechos = snapshotDispositivo.val() || {};
+      Object.keys(trechos).forEach(trechoId => {
+        const trecho = trechos[trechoId];
+        if (!trecho || !trecho.pontos) return;
+        const nome = trecho.nomebarco || dispositivo;
+
+        const listenerId = `${dispositivo}_${trechoId}`;
+        if (!competidores[listenerId]?.listenerCreated) {
+          escutarTrecho(dispositivo, trechoId, nome);
+          competidores[listenerId] = competidores[listenerId] || {};
+          competidores[listenerId].listenerCreated = true;
         }
       });
-    }, 10000);
+    });
 
-    // 🔹 Função para centralizar
+    // 🔹 Remove trechos inativos (>1 minuto sem atualização)
+    setInterval(() => {
+  const agora = Date.now();
+  Object.keys(competidores).forEach(id => {
+    const comp = competidores[id];
+    if (agora - comp.lastUpdate > 60000) {
+      // remove marcador e trilha
+      if (comp.marker) map.removeLayer(comp.marker);
+      if (comp.polyline) map.removeLayer(comp.polyline);
+      // remove do objeto
+      delete competidores[id];
+    }
+  });
+}, 10000);
+
+    // 🔹 Centralizar
     function centralizarBarcos() {
       const coords = Object.values(competidores).map(c => c.marker.getLatLng());
       if (coords.length > 0) {
@@ -143,8 +171,8 @@
         map.fitBounds(bounds.pad(0.2));
       }
     }
-
     document.getElementById("btnCentralizar").addEventListener("click", centralizarBarcos);
+
   </script>
 </body>
 </html>
