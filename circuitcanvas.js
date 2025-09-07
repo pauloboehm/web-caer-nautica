@@ -217,9 +217,10 @@ export class CircuitCanvas {
       this.ctx.beginPath();
       this.ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
       this.ctx.fill();
-      if (typeof pts[i].hso === "number") {
-        this.ctx.fillText(`${pts[i].hso}s`, p.x + 6, p.y - 6);
-      }
+      const oldcor = this.ctx.fillStyle;
+      this.ctx.fillStyle = "red";
+      this.ctx.fillText(`${i}`, p.x + 6, p.y - 6);
+      this.ctx.fillStyle = oldcor;
     }
     this.ctx.restore();
   }
@@ -232,6 +233,7 @@ export class CircuitCanvas {
     this.ctx.beginPath();
     const s0 = this.#worldToScreen(this.trail[0]);
     this.ctx.moveTo(s0.x, s0.y);
+    this.ctx.fillStyle = "lightcoral";
     for (let i = 1; i < this.trail.length; i++) {
       const s = this.#worldToScreen(this.trail[i]);
       this.ctx.lineTo(s.x, s.y);

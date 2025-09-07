@@ -129,15 +129,15 @@ function rumoCardinal(brng) {
 }
 
 function atualizarProximoPonto(lat, lon){
-  if(distanciaMetros(lat, lon, circuito.pontos[proximoPonto].lat, circuito.pontos[proximoPonto].lon) < 10)
-    proximoPonto++;
+  if(distanciaMetros(lat, lon, viewer.circuit.pontos[proximoPonto].lat,
+      viewer.circuit.pontos[proximoPonto].lon) < 10) proximoPonto++;
 }
 
 function estimadaProximoPonto(lat, lon, vel) {
-  if(proximoPonto >= circuito.pontos.length) return `Circuito completo`;
+  if(proximoPonto >= viewer.circuit.pontos.length) return `Circuito completo`;
   atualizarProximoPonto(lat, lon);
-  const proxpt = circuito.pontos[proximoPonto];
-  let dist = distanciaMetros(lat, lon, proxpt.lat, proxpt.lon);
+  const proxpt = viewer.circuit.pontos[proximoPonto];
+  const dist = distanciaMetros(lat, lon, proxpt.lat, proxpt.lon);
   const velMS = Math.max(vel * 1609.34 / 3600, 0.1); // evita divisão por zero 
   const agora = new Date();
   const msFuturo = agora.getTime() + (dist / velMS) * 1000;
@@ -252,6 +252,7 @@ async function carregarCircuitoPorNome(nomeCircuito) {
             rotateToHeading: true 
           });
         }
+        circuito = circuitoEncontrado;
         return { id: chaveCircuito, ...circuitoEncontrado };
       } else {
         console.warn("Circuito com nome não encontrado:", nomeCircuito);
