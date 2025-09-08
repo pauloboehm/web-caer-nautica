@@ -233,7 +233,7 @@ export class CircuitCanvas {
     this.ctx.beginPath();
     const s0 = this.#worldToScreen(this.trail[0]);
     this.ctx.moveTo(s0.x, s0.y);
-    this.ctx.fillStyle = "lightcoral";
+    this.ctx.strokeStyle = "lightcoral";
     for (let i = 1; i < this.trail.length; i++) {
       const s = this.#worldToScreen(this.trail[i]);
       this.ctx.lineTo(s.x, s.y);

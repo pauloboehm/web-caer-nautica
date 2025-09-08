@@ -128,9 +128,80 @@ function rumoCardinal(brng) {
   return dirs[Math.round(brng / 45) % 8];
 }
 
-function atualizarProximoPonto(lat, lon){
-  if(distanciaMetros(lat, lon, viewer.circuit.pontos[proximoPonto].lat,
-      viewer.circuit.pontos[proximoPonto].lon) < 10) proximoPonto++;
+function toXY(lat, lon, lat0, lon0) {
+  const R = 6371000;
+  const x = (lon - lon0) * Math.PI/180 * R * Math.cos(lat0 * Math.PI/180);
+  const y = (lat - lat0) * Math.PI/180 * R;
+  return {x, y};
+}
+
+function norm(v) {
+  const d = Math.sqrt(v.x*v.x + v.y*v.y);
+  return d > 0 ? {x: v.x/d, y: v.y/d} : {x:0,y:0};
+}
+
+function atualizarProximoPonto(lat, lon) {
+  const N = viewer.circuit.pontos.length;
+  if (proximoPonto >= N) return; // já terminou
+
+  // === Primeiro ponto: usa perpendicular em 0 ===
+  if (proximoPonto === 0) {
+    const A = viewer.circuit.pontos[0];
+    const B = viewer.circuit.pontos[1];
+    const Axy = {x:0,y:0};
+    const Bxy = toXY(B.lat, B.lon, A.lat, A.lon);
+    const Pxy = toXY(lat, lon, A.lat, A.lon);
+
+    const AB = {x: Bxy.x - Axy.x, y: Bxy.y - Axy.y};
+    const AP = {x: Pxy.x - Axy.x, y: Pxy.y - Axy.y};
+
+    const dot = AB.x*AP.x + AB.y*AP.y; // projeção
+    if (dot > 0) {
+      proximoPonto++;
+      console.log("🚩 Avançou para ponto", proximoPonto);
+    }
+    return;
+  }
+
+  // === Último ponto: usa perpendicular no final ===
+  if (proximoPonto === N-1) {
+    const A = viewer.circuit.pontos[N-2];
+    const B = viewer.circuit.pontos[N-1];
+    const Axy = {x:0,y:0};
+    const Bxy = toXY(B.lat, B.lon, A.lat, A.lon);
+    const Pxy = toXY(lat, lon, A.lat, A.lon);
+
+    const AB = {x: Bxy.x - Axy.x, y: Bxy.y - Axy.y};
+    const AP = {x: Pxy.x - Axy.x, y: Pxy.y - Axy.y};
+
+    const dot = AB.x*AP.x + AB.y*AP.y;
+    if (dot > (AB.x*AB.x + AB.y*AB.y)) {
+      proximoPonto++;
+      console.log("🏁 Avançou para ponto FINAL", proximoPonto);
+    }
+    return;
+  }
+
+  // === Caso geral: pontos intermediários → usa bissetriz ===
+  const A = viewer.circuit.pontos[proximoPonto-1];
+  const B = viewer.circuit.pontos[proximoPonto];
+  const C = viewer.circuit.pontos[proximoPonto+1];
+
+  const Axy = toXY(A.lat, A.lon, B.lat, B.lon);
+  const Bxy = {x:0,y:0};
+  const Cxy = toXY(C.lat, C.lon, B.lat, B.lon);
+  const Pxy = toXY(lat, lon, B.lat, B.lon);
+
+  const v1 = norm({x: Axy.x - Bxy.x, y: Axy.y - Bxy.y}); // vetor A→B
+  const v2 = norm({x: Cxy.x - Bxy.x, y: Cxy.y - Bxy.y}); // vetor B→C
+  const bis = norm({x: v1.x + v2.x, y: v1.y + v2.y});   // bissetriz
+  const BP  = {x: Pxy.x - Bxy.x, y: Pxy.y - Bxy.y};
+
+  const dot = BP.x*bis.x + BP.y*bis.y;
+  if (dot > 0) {
+    proximoPonto++;
+    console.log("🚩 Avançou para ponto", proximoPonto);
+  }
 }
 
 function estimadaProximoPonto(lat, lon, vel) {
