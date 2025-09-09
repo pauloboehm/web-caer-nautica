@@ -135,70 +135,38 @@ function toXY(lat, lon, lat0, lon0) {
   return {x, y};
 }
 
-function norm(v) {
-  const d = Math.sqrt(v.x*v.x + v.y*v.y);
-  return d > 0 ? {x: v.x/d, y: v.y/d} : {x:0,y:0};
+// distância de ponto P ao segmento AB
+function distanciaPontoSegmento(P, A, B) {
+  const AB = {x: B.x - A.x, y: B.y - A.y};
+  const AP = {x: P.x - A.x, y: P.y - A.y};
+  const ab2 = AB.x*AB.x + AB.y*AB.y;
+
+  if (ab2 === 0) return Math.hypot(AP.x, AP.y); // A==B
+
+  let t = (AP.x*AB.x + AP.y*AB.y) / ab2;
+  t = Math.max(0, Math.min(1, t)); // restringe ao segmento
+  const proj = {x: A.x + t*AB.x, y: A.y + t*AB.y};
+  return Math.hypot(P.x - proj.x, P.y - proj.y);
 }
 
 function atualizarProximoPonto(lat, lon) {
   const N = viewer.circuit.pontos.length;
-  if (proximoPonto >= N) return; // já terminou
+  if (proximoPonto <= 0 || proximoPonto >= N-1) return;
 
-  // === Primeiro ponto: usa perpendicular em 0 ===
-  if (proximoPonto === 0) {
-    const A = viewer.circuit.pontos[0];
-    const B = viewer.circuit.pontos[1];
-    const Axy = {x:0,y:0};
-    const Bxy = toXY(B.lat, B.lon, A.lat, A.lon);
-    const Pxy = toXY(lat, lon, A.lat, A.lon);
+  const P = toXY(lat, lon, viewer.circuit.pontos[proximoPonto].lat, viewer.circuit.pontos[proximoPonto].lon);
 
-    const AB = {x: Bxy.x - Axy.x, y: Bxy.y - Axy.y};
-    const AP = {x: Pxy.x - Axy.x, y: Pxy.y - Axy.y};
+  // Segmento anterior
+  const A = toXY(viewer.circuit.pontos[proximoPonto-1].lat, viewer.circuit.pontos[proximoPonto-1].lon,
+                 viewer.circuit.pontos[proximoPonto].lat, viewer.circuit.pontos[proximoPonto].lon);
+  const B = {x:0, y:0}; // ponto atual de referência (proximoPonto no centro)
+  const distAnterior = distanciaPontoSegmento(P, A, B);
 
-    const dot = AB.x*AP.x + AB.y*AP.y; // projeção
-    if (dot > 0) {
-      proximoPonto++;
-      console.log("🚩 Avançou para ponto", proximoPonto);
-    }
-    return;
-  }
+  // Segmento seguinte
+  const C = toXY(viewer.circuit.pontos[proximoPonto+1].lat, viewer.circuit.pontos[proximoPonto+1].lon,
+                 viewer.circuit.pontos[proximoPonto].lat, viewer.circuit.pontos[proximoPonto].lon);
+  const distSeguinte = distanciaPontoSegmento(P, B, C);
 
-  // === Último ponto: usa perpendicular no final ===
-  if (proximoPonto === N-1) {
-    const A = viewer.circuit.pontos[N-2];
-    const B = viewer.circuit.pontos[N-1];
-    const Axy = {x:0,y:0};
-    const Bxy = toXY(B.lat, B.lon, A.lat, A.lon);
-    const Pxy = toXY(lat, lon, A.lat, A.lon);
-
-    const AB = {x: Bxy.x - Axy.x, y: Bxy.y - Axy.y};
-    const AP = {x: Pxy.x - Axy.x, y: Pxy.y - Axy.y};
-
-    const dot = AB.x*AP.x + AB.y*AP.y;
-    if (dot > (AB.x*AB.x + AB.y*AB.y)) {
-      proximoPonto++;
-      console.log("🏁 Avançou para ponto FINAL", proximoPonto);
-    }
-    return;
-  }
-
-  // === Caso geral: pontos intermediários → usa bissetriz ===
-  const A = viewer.circuit.pontos[proximoPonto-1];
-  const B = viewer.circuit.pontos[proximoPonto];
-  const C = viewer.circuit.pontos[proximoPonto+1];
-
-  const Axy = toXY(A.lat, A.lon, B.lat, B.lon);
-  const Bxy = {x:0,y:0};
-  const Cxy = toXY(C.lat, C.lon, B.lat, B.lon);
-  const Pxy = toXY(lat, lon, B.lat, B.lon);
-
-  const v1 = norm({x: Axy.x - Bxy.x, y: Axy.y - Bxy.y}); // vetor A→B
-  const v2 = norm({x: Cxy.x - Bxy.x, y: Cxy.y - Bxy.y}); // vetor B→C
-  const bis = norm({x: v1.x + v2.x, y: v1.y + v2.y});   // bissetriz
-  const BP  = {x: Pxy.x - Bxy.x, y: Pxy.y - Bxy.y};
-
-  const dot = BP.x*bis.x + BP.y*bis.y;
-  if (dot > 0) {
+  if (distSeguinte < distAnterior) {
     proximoPonto++;
     console.log("🚩 Avançou para ponto", proximoPonto);
   }
