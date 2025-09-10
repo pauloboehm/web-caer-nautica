@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Monitoramento de Rotas</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-rotatedmarker/leaflet.rotatedMarker.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <style>
+    #map { width: 100%; height: 90vh; }
+    #btnCentralizar {
+      margin: 10px;
+      padding: 8px 12px;
+      background: navy;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #btnCentralizar:hover {
+      background: darkblue;
+    }
+  </style>
+</head>
+<body>
+  <h2>⛵ Monitoramento em tempo real</h2>
+  <button id="btnCentralizar">🔍 Centralizar nos competidores</button>
+  <div id="map"></div>
+
+  <script src="firedb.js"></script>
+  <script>
+    // 🔹 Inicializa Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 🔹 Mapa
+    const map = L.map('map').setView([-23.55, -46.63], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // 🔹 Ícone do barco
+    const barcoIcon = L.icon({
+      iconUrl: "https://cdn-icons-png.flaticon.com/512/77/77521.png",
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    // 🔹 Competidores ativos
+    const competidores = {}; 
+    const deviceListeners = new Set(); // evita duplicar listeners
+
+    // 🔹 Função para gerar cor única
+    function colorFromId(id) {
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) {
+        hash = id.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const hue = hash % 360;
+      return `hsl(${hue}, 80%, 50%)`;
+    }
+
+    // 🔹 Atualizar ou criar competidor
+    function atualizarCompetidor(dispositivo, trechoId, nome, ponto) {
+      const lat = ponto.lat;
+      const lon = ponto.lon;
+      const rumo = ponto.rumo || 0;
+      const timestamp = ponto.timestamp || Date.now();
+      const idCompetidor = dispositivo + "_" + trechoId;
+
+      console.log('[atualizarCompetidor]', idCompetidor, ponto);
+
+      if (!competidores[idCompetidor]?.marker) {
+        const cor = colorFromId(idCompetidor);
+        competidores[idCompetidor] = {
+          marker: L.marker([lat, lon], {
+            icon: barcoIcon,
+            rotationAngle: rumo,
+            rotationOrigin: "center"
+          }).addTo(map)
+          .bindPopup(`<b>${nome}</b><br>Rumo: ${rumo}°`)
+          .bindTooltip(nome, { permanent: true, direction: "right", offset: [10,0] }),
+
+          polyline: L.polyline([[lat, lon]], { color: cor, weight: 3 }).addTo(map),
+
+          ultimosPontos: [{ lat, lon }],
+          lastUpdate: timestamp,
+          color: cor,
+          listenerCreated: true,
+          processedPoints: new Set()
+        };
+      } else {
+        const comp = competidores[idCompetidor];
+        comp.marker.setLatLng([lat, lon]);
+        comp.marker.setRotationAngle(rumo);
+        comp.marker.setPopupContent(`<b>${nome}</b><br>Rumo: ${rumo}°`);
+        comp.marker.setTooltipContent(nome);
+
+        comp.ultimosPontos.push({ lat, lon });
+        if (comp.ultimosPontos.length > 300) comp.ultimosPontos.shift();
+        comp.polyline.setLatLngs(comp.ultimosPontos.map(p => [p.lat, p.lon]));
+        comp.lastUpdate = timestamp;
+      }
+    }
+
+    // 🔹 Escutar pontos de um trecho
+    function escutarTrecho(dispositivo, trechoId, nome) {
+      const idCompetidor = `${dispositivo}_${trechoId}`;
+      const pontosRef = db.ref(`rotas/${dispositivo}/${trechoId}/pontos`);
+
+      competidores[idCompetidor] = competidores[idCompetidor] || {};
+      if (!competidores[idCompetidor].processedPoints) {
+        competidores[idCompetidor].processedPoints = new Set();
+      }
+
+      console.log('[escutarTrecho] attach', idCompetidor, 'nome=', nome);
+
+      // pega pontos já existentes
+      pontosRef.once('value', snap => {
+        snap.forEach(child => {
+          const key = child.key;
+          if (!competidores[idCompetidor].processedPoints.has(key)) {
+            const ponto = child.val();
+            if (ponto && ponto.lat && ponto.lon) {
+              atualizarCompetidor(dispositivo, trechoId, nome, ponto);
+              competidores[idCompetidor].processedPoints.add(key);
+            }
+          }
+        });
+      });
+
+      // listener em tempo real
+      pontosRef.on('child_added', pontoSnap => {
+        const key = pontoSnap.key;
+        if (competidores[idCompetidor].processedPoints.has(key)) return;
+        const ponto = pontoSnap.val();
+        console.log('[ponto child_added]', idCompetidor, key, ponto);
+        if (!ponto || !ponto.lat || !ponto.lon) return;
+        atualizarCompetidor(dispositivo, trechoId, nome, ponto);
+        competidores[idCompetidor].processedPoints.add(key);
+      });
+    }
+
+    // 🔹 Listener para um novo trecho
+    function escutarTrechoNovo(dispositivo, trechoId, trecho) {
+      const nome = trecho?.nomebarco || dispositivo;
+      const listenerId = `${dispositivo}_${trechoId}`;
+
+      if (!competidores[listenerId]?.listenerCreated) {
+        console.log('[escutarTrechoNovo] criando listener para', listenerId);
+        escutarTrecho(dispositivo, trechoId, nome);
+        competidores[listenerId] = competidores[listenerId] || {};
+        competidores[listenerId].listenerCreated = true;
+      } else {
+        console.log('[escutarTrechoNovo] listener já existe para', listenerId);
+      }
+    }
+
+    // 🔹 Escutar todos os trechos de um dispositivo
+    function escutarDispositivo(dispositivo, trechos) {
+      Object.keys(trechos || {}).forEach(trechoId => {
+        escutarTrechoNovo(dispositivo, trechoId, trechos[trechoId]);
+      });
+
+      if (deviceListeners.has(dispositivo)) {
+        console.log('[escutarDispositivo] já havia listeners para', dispositivo);
+        return;
+      }
+      deviceListeners.add(dispositivo);
+
+      const deviceRef = db.ref(`rotas/${dispositivo}`);
+
+      deviceRef.on('child_added', snapshotTrecho => {
+        console.log('[device child_added]', dispositivo, snapshotTrecho.key);
+        escutarTrechoNovo(dispositivo, snapshotTrecho.key, snapshotTrecho.val());
+      });
+
+      deviceRef.on('child_changed', snapshotTrecho => {
+        console.log('[device child_changed]', dispositivo, snapshotTrecho.key);
+        escutarTrechoNovo(dispositivo, snapshotTrecho.key, snapshotTrecho.val());
+      });
+    }
+
+    // 🔹 Inicializar todos os dispositivos já existentes
+    db.ref("rotas").once("value", snapshot => {
+      const rotas = snapshot.val() || {};
+      Object.keys(rotas).forEach(dispositivo => {
+        escutarDispositivo(dispositivo, rotas[dispositivo] || {});
+      });
+    });
+
+    // 🔹 Listener para novos dispositivos
+    db.ref("rotas").on("child_added", snapshotDispositivo => {
+      const dispositivo = snapshotDispositivo.key;
+      console.log('[root child_added] novo dispositivo detectado', dispositivo);
+      escutarDispositivo(dispositivo, snapshotDispositivo.val() || {});
+    });
+
+    // 🔹 Remover trechos inativos (>1min)
+    setInterval(() => {
+      const agora = Date.now();
+      Object.keys(competidores).forEach(id => {
+        const comp = competidores[id];
+        if (agora - comp.lastUpdate > 60000) {
+          if (comp.marker) map.removeLayer(comp.marker);
+          if (comp.polyline) map.removeLayer(comp.polyline);
+          delete competidores[id];
+        }
+      });
+    }, 10000);
+
+    // 🔹 Centralizar no mapa
+    function centralizarBarcos() {
+      const coords = Object.values(competidores).map(c => c.marker.getLatLng());
+      if (coords.length > 0) {
+        map.fitBounds(L.latLngBounds(coords).pad(0.2));
+      }
+    }
+    document.getElementById("btnCentralizar").addEventListener("click", centralizarBarcos);
+  </script>
+</body>
+</html>
