@@ -132,6 +132,9 @@ function cruzouLinhaLargada(lat, lon) {
   const p0 = viewer.circuit.pontos[0];
   const p1 = viewer.circuit.pontos[1];
 
+  // Identifica linha de largada se dentro de um raio de 200 metros
+  //if(distanciaMetros(lat, lon, p0.lat, p0.lon) > 200) return false;
+  
   // converte para plano local (referência no ponto 0)
   const P = toXY(lat, lon, p0.lat, p0.lon);
   const A = {x: 0, y: 0}; // ponto 0
