@@ -49,7 +49,8 @@
     });
 
     // 🔹 Competidores ativos
-    const competidores = {}; // { idCompetidor: { marker, polyline, ultimosPontos[], lastUpdate, color, listenerCreated } }
+    const competidores = {}; 
+    const deviceListeners = new Set(); // evita duplicar listeners
 
     // 🔹 Função para gerar cor única
     function colorFromId(id) {
@@ -61,13 +62,15 @@
       return `hsl(${hue}, 80%, 50%)`;
     }
 
-    // 🔹 Função que atualiza ou cria competidor
+    // 🔹 Atualizar ou criar competidor
     function atualizarCompetidor(dispositivo, trechoId, nome, ponto) {
       const lat = ponto.lat;
       const lon = ponto.lon;
       const rumo = ponto.rumo || 0;
       const timestamp = ponto.timestamp || Date.now();
       const idCompetidor = dispositivo + "_" + trechoId;
+
+      console.log('[atualizarCompetidor]', idCompetidor, ponto);
 
       if (!competidores[idCompetidor]?.marker) {
         const cor = colorFromId(idCompetidor);
@@ -85,104 +88,137 @@
           ultimosPontos: [{ lat, lon }],
           lastUpdate: timestamp,
           color: cor,
-          listenerCreated: true
+          listenerCreated: true,
+          processedPoints: new Set()
         };
       } else {
-        // atualiza marcador
-        competidores[idCompetidor].marker.setLatLng([lat, lon]);
-        competidores[idCompetidor].marker.setRotationAngle(rumo);
-        competidores[idCompetidor].marker.setPopupContent(`<b>${nome}</b><br>Rumo: ${rumo}°`);
-        competidores[idCompetidor].marker.setTooltipContent(nome);
+        const comp = competidores[idCompetidor];
+        comp.marker.setLatLng([lat, lon]);
+        comp.marker.setRotationAngle(rumo);
+        comp.marker.setPopupContent(`<b>${nome}</b><br>Rumo: ${rumo}°`);
+        comp.marker.setTooltipContent(nome);
 
-        // atualiza trilha
-        competidores[idCompetidor].ultimosPontos.push({ lat, lon });
-        if (competidores[idCompetidor].ultimosPontos.length > 300) {
-          competidores[idCompetidor].ultimosPontos.shift();
-        }
-        const coords = competidores[idCompetidor].ultimosPontos.map(p => [p.lat, p.lon]);
-        competidores[idCompetidor].polyline.setLatLngs(coords);
-
-        // atualiza tempo
-        competidores[idCompetidor].lastUpdate = timestamp;
+        comp.ultimosPontos.push({ lat, lon });
+        if (comp.ultimosPontos.length > 300) comp.ultimosPontos.shift();
+        comp.polyline.setLatLngs(comp.ultimosPontos.map(p => [p.lat, p.lon]));
+        comp.lastUpdate = timestamp;
       }
     }
 
-    // 🔹 Função que adiciona listener em um trecho específico
+    // 🔹 Escutar pontos de um trecho
     function escutarTrecho(dispositivo, trechoId, nome) {
-      db.ref(`rotas/${dispositivo}/${trechoId}/pontos`).on("child_added", pontoSnap => {
+      const idCompetidor = `${dispositivo}_${trechoId}`;
+      const pontosRef = db.ref(`rotas/${dispositivo}/${trechoId}/pontos`);
+
+      competidores[idCompetidor] = competidores[idCompetidor] || {};
+      if (!competidores[idCompetidor].processedPoints) {
+        competidores[idCompetidor].processedPoints = new Set();
+      }
+
+      console.log('[escutarTrecho] attach', idCompetidor, 'nome=', nome);
+
+      // pega pontos já existentes
+      pontosRef.once('value', snap => {
+        snap.forEach(child => {
+          const key = child.key;
+          if (!competidores[idCompetidor].processedPoints.has(key)) {
+            const ponto = child.val();
+            if (ponto && ponto.lat && ponto.lon) {
+              atualizarCompetidor(dispositivo, trechoId, nome, ponto);
+              competidores[idCompetidor].processedPoints.add(key);
+            }
+          }
+        });
+      });
+
+      // listener em tempo real
+      pontosRef.on('child_added', pontoSnap => {
+        const key = pontoSnap.key;
+        if (competidores[idCompetidor].processedPoints.has(key)) return;
         const ponto = pontoSnap.val();
+        console.log('[ponto child_added]', idCompetidor, key, ponto);
         if (!ponto || !ponto.lat || !ponto.lon) return;
         atualizarCompetidor(dispositivo, trechoId, nome, ponto);
+        competidores[idCompetidor].processedPoints.add(key);
       });
     }
 
-    // 🔹 Função que garante listener em um trecho
+    // 🔹 Listener para um novo trecho
     function escutarTrechoNovo(dispositivo, trechoId, trecho) {
-      //if (!trecho || !trecho.pontos) return;
-
-      const nome = trecho.nomebarco || dispositivo;
+      const nome = trecho?.nomebarco || dispositivo;
       const listenerId = `${dispositivo}_${trechoId}`;
 
       if (!competidores[listenerId]?.listenerCreated) {
+        console.log('[escutarTrechoNovo] criando listener para', listenerId);
         escutarTrecho(dispositivo, trechoId, nome);
         competidores[listenerId] = competidores[listenerId] || {};
         competidores[listenerId].listenerCreated = true;
+      } else {
+        console.log('[escutarTrechoNovo] listener já existe para', listenerId);
       }
     }
 
-    // 🔹 Função que percorre os trechos de um dispositivo
+    // 🔹 Escutar todos os trechos de um dispositivo
     function escutarDispositivo(dispositivo, trechos) {
-      Object.keys(trechos).forEach(trechoId => {
+      Object.keys(trechos || {}).forEach(trechoId => {
         escutarTrechoNovo(dispositivo, trechoId, trechos[trechoId]);
       });
 
-      // Listener para novos trechos adicionados futuramente
-      db.ref(`rotas/${dispositivo}`).on("child_added", snapshotTrecho => {
+      if (deviceListeners.has(dispositivo)) {
+        console.log('[escutarDispositivo] já havia listeners para', dispositivo);
+        return;
+      }
+      deviceListeners.add(dispositivo);
+
+      const deviceRef = db.ref(`rotas/${dispositivo}`);
+
+      deviceRef.on('child_added', snapshotTrecho => {
+        console.log('[device child_added]', dispositivo, snapshotTrecho.key);
+        escutarTrechoNovo(dispositivo, snapshotTrecho.key, snapshotTrecho.val());
+      });
+
+      deviceRef.on('child_changed', snapshotTrecho => {
+        console.log('[device child_changed]', dispositivo, snapshotTrecho.key);
         escutarTrechoNovo(dispositivo, snapshotTrecho.key, snapshotTrecho.val());
       });
     }
 
-    // 🔹 Inicializa todos os dispositivos já existentes
+    // 🔹 Inicializar todos os dispositivos já existentes
     db.ref("rotas").once("value", snapshot => {
       const rotas = snapshot.val() || {};
       Object.keys(rotas).forEach(dispositivo => {
-        const trechos = rotas[dispositivo] || {};
-        escutarDispositivo(dispositivo, trechos);
+        escutarDispositivo(dispositivo, rotas[dispositivo] || {});
       });
     });
-    
-    // 🔹 Listener principal para novos dispositivos
+
+    // 🔹 Listener para novos dispositivos
     db.ref("rotas").on("child_added", snapshotDispositivo => {
       const dispositivo = snapshotDispositivo.key;
-      const trechos = snapshotDispositivo.val() || {};
-      escutarDispositivo(dispositivo, trechos);
+      console.log('[root child_added] novo dispositivo detectado', dispositivo);
+      escutarDispositivo(dispositivo, snapshotDispositivo.val() || {});
     });
 
-    // 🔹 Remove trechos inativos (>1 minuto sem atualização)
+    // 🔹 Remover trechos inativos (>1min)
     setInterval(() => {
       const agora = Date.now();
       Object.keys(competidores).forEach(id => {
         const comp = competidores[id];
         if (agora - comp.lastUpdate > 60000) {
-          // remove marcador e trilha
           if (comp.marker) map.removeLayer(comp.marker);
           if (comp.polyline) map.removeLayer(comp.polyline);
-          // remove do objeto
           delete competidores[id];
         }
       });
     }, 10000);
 
-    // 🔹 Centralizar
+    // 🔹 Centralizar no mapa
     function centralizarBarcos() {
       const coords = Object.values(competidores).map(c => c.marker.getLatLng());
       if (coords.length > 0) {
-        const bounds = L.latLngBounds(coords);
-        map.fitBounds(bounds.pad(0.2));
+        map.fitBounds(L.latLngBounds(coords).pad(0.2));
       }
     }
     document.getElementById("btnCentralizar").addEventListener("click", centralizarBarcos);
-
   </script>
 </body>
 </html>
