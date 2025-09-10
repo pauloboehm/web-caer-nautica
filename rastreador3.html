@@ -413,10 +413,9 @@ function iniciarGravacao(){
   const db = getDatabase();
   const rotasUsuarioRef = ref(db, `rotas/${currentUser.uid}`);
   rotaRef = push(rotasUsuarioRef);
-  set(rotaRef, { timestamp: new Date().toISOString() });
   const selcomp = document.getElementById("competidorSelect");
   let nome_barco = selcomp.options[selcomp.selectedIndex].text;
-  set(rotaRef, { nomebarco: nome_barco });
+  set(rotaRef, { timestamp: new Date().toISOString(), nomebarco: nome_barco });
 
   watch_tempo = Date.now();
   watchId = navigator.geolocation.watchPosition(
