@@ -14,6 +14,56 @@
     canvas { margin-left: 0px; }
     #info { font-size: 32px; line-height: 1.4; }
     #relogio { font-size: 40px; }
+    #dbstatus { font-size: 14px }
+    select {
+      padding: 0.8rem 1.2rem;    /* aumenta área clicável */
+      font-size: 1.2rem;       /* aumenta texto */
+    }
+    /* Container dos botões */
+    .botoes-container {
+      display: flex;
+      gap: 8px;             /* espaço entre botões */
+      margin: 10px;
+    }
+    /* Botões */
+    .botoes-container button {
+      flex: 1;              /* divide igualmente o espaço */
+      padding: 1rem;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .botoes-container button:hover {
+      background: darkblue;
+    }
+    .botoes-container button:not(:disabled) {
+      border: none;
+    }
+    .botoes-container button:disabled {
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    .info-painel {
+      width: 100%;
+      max-width: 600px;   /* largura máxima opcional */
+      font-family: Arial, sans-serif;
+      font-size: 1.2rem;
+      background: #020303;
+    }
+    .info-linha {
+      display: flex;
+      justify-content: space-between; /* legenda à esquerda, valor à direita */
+      padding: 4px 0;
+      border-bottom: 1px solid yellow;  /* opcional: linha separadora */
+    }
+    .info-label {
+      font-weight: bold;
+      color: yellow;
+    }
+    .info-valor {
+      color: yellow;
+    }
   }
 </style>
 </head>
@@ -21,26 +71,31 @@
 
 <h2>Gravador GPX BD-V</h2>
 
-<label for="competidorSelect">Selecione um competidor:</label>
+<label for="competidorSelect">Competidor:</label>
 <select id="competidorSelect">
   <option value="">-- Escolha --</option>
 </select>
 
 <div id="dbstatus">Autenticando usuário...</div>
 
-<button id="startBtn">Iniciar</button>
-<button id="stopBtn" disabled>Terminar</button>
-<button id="baixarBtn" disabled>Baixar</button>
+<div class="botoes-container">
+  <button id="startBtn">Iniciar</button>
+  <button id="stopBtn" disabled>Terminar</button>
+  <button id="baixarBtn" disabled>Baixar</button>
+</div>
 
 <canvas id="mapCanvas"></canvas>
 
 <div id="relogio">--:--:--</div>
 <label id="infoPrec">Precisão</label>
-<div id="info">
-  Rumo: -<br>
-  Velocidade: 0 Mph<br>
-  Distância: 0.0 km<br>
-  Tempo: 0s
+<div class="info-painel">
+  <div class="info-linha"><span class="info-label">Rumo:</span><span id="infoRumo" class="info-valor">0° N</span></div>
+  <div class="info-linha"><span class="info-label">Velocidade:</span><span id="infoVel" class="info-valor">0 Mph</span></div>
+  <div class="info-linha"><span class="info-label">Próximo ponto:</span><span id="infoProx" class="info-valor">0</span></div>
+  <div class="info-linha"><span class="info-label">ETA:</span><span id="infoETA" class="info-valor">00:00:00</span></div>
+  <div class="info-linha"><span class="info-label">ETD:</span><span id="infoETD" class="info-valor">0 m</span></div>
+  <div class="info-linha"><span class="info-label">Distância total:</span><span id="infoDist" class="info-valor">0 km</span></div>
+  <div class="info-linha"><span class="info-label">Tempo total:</span><span id="infoTempo" class="info-valor">0h 0m 0s</span></div>
 </div>
 
 <script src="firedb.js"></script>
@@ -197,7 +252,7 @@ function atualizarProximoPonto(lat, lon) {
 }
 
 function estimadaProximoPonto(lat, lon, vel) {
-  if(proximoPonto >= viewer.circuit.pontos.length) return `Circuito completo`;
+  if(proximoPonto >= viewer.circuit.pontos.length) return { ETA:`Circuito completo`, ETD:"-"};
   atualizarProximoPonto(lat, lon);
   const proxpt = viewer.circuit.pontos[proximoPonto];
   const dist = distanciaMetros(lat, lon, proxpt.lat, proxpt.lon);
@@ -209,6 +264,7 @@ function estimadaProximoPonto(lat, lon, vel) {
   const minutos = String(tempoDecorrido.getMinutes()).padStart(2,'0');
   const segundos = String(tempoDecorrido.getSeconds()).padStart(2,'0');
   return `${horas}:${minutos}:${segundos}<br>D[${proximoPonto}]: ${dist.toFixed(1)} m`;
+  return {ETA:`${horas}:${minutos}:${segundos}`, ETD:`${dist.toFixed(1)} m`};
 }
 
 // Atualiza informações
@@ -216,7 +272,7 @@ function atualizarInfo(){
   let vel_api=0;
   let rumo_api = "-";
   let rumo_apiTxt = "-";
-  let proxFmt = "-";
+  let proxFmt = { ETA: "-", ETD: "-"};
   if(pontos.length>=2){
     const p1=pontos[pontos.length-2];
     const p2=pontos[pontos.length-1];
@@ -244,13 +300,13 @@ function atualizarInfo(){
   const segundos = tempoDecorrido % 60;
   const tempoFmt = `${horas}h ${minutos}m ${segundos}s`;
 
-  info.innerHTML = `
-    Rumo: ${rumo_api}° (${rumo_apiTxt})<br>
-    Velocidade: ${vel_api} Mph<br>
-    ETA[${proximoPonto}]: ${proxFmt}<br>
-    Distância: ${(distanciaTotal/1000).toFixed(2)} km<br>
-    Tempo: ${tempoFmt}<br>
-    `;
+  document.getElementById("infoVel").textContent = vel_api + " Mph";
+  document.getElementById("infoRumo").textContent = rumo_api + "° " + rumo_apiTxt;
+  document.getElementById("infoProx").textContent = proximoPonto;
+  document.getElementById("infoETA").textContent = proxFmt.ETA;
+  document.getElementById("infoETD").textContent = proxFmt.ETD;
+  document.getElementById("infoDist").textContent = (distanciaTotal/1000).toFixed(2) + " km";
+  document.getElementById("infoTempo").textContent = tempoFmt;
 }
 
 async function carregarCadencia() {
