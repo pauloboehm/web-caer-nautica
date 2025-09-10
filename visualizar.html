@@ -116,36 +116,37 @@
       });
     }
 
-    // 🔹 Inicializa listeners para todos os trechos existentes
-    db.ref("rotas").once("value", snapshot => {
-      const rotas = snapshot.val() || {};
-      Object.keys(rotas).forEach(dispositivo => {
-        const trechos = rotas[dispositivo];
-        Object.keys(trechos).forEach(trechoId => {
-          const trecho = trechos[trechoId];
-          if (!trecho || !trecho.pontos) return;
-          const nome = trecho.nomebarco || dispositivo;
-          escutarTrecho(dispositivo, trechoId, nome);
-        });
-      });
-    });
+    // 🔹 Função que garante listener em um trecho
+    function escutarTrechoNovo(dispositivo, trechoId, trecho) {
+      if (!trecho || !trecho.pontos) return;
 
-    // 🔹 Listener para novos dispositivos ou trechos
+      const nome = trecho.nomebarco || dispositivo;
+      const listenerId = `${dispositivo}_${trechoId}`;
+
+      if (!competidores[listenerId]?.listenerCreated) {
+        escutarTrecho(dispositivo, trechoId, nome);
+        competidores[listenerId] = competidores[listenerId] || {};
+        competidores[listenerId].listenerCreated = true;
+      }
+    }
+
+    // 🔹 Função que percorre os trechos de um dispositivo
+    function escutarDispositivo(dispositivo, trechos) {
+      Object.keys(trechos).forEach(trechoId => {
+        escutarTrechoNovo(dispositivo, trechoId, trechos[trechoId]);
+      });
+
+      // Listener para novos trechos adicionados futuramente
+      db.ref(`rotas/${dispositivo}`).on("child_added", snapshotTrecho => {
+        escutarTrechoNovo(dispositivo, snapshotTrecho.key, snapshotTrecho.val());
+      });
+    }
+
+    // 🔹 Listener principal para novos dispositivos
     db.ref("rotas").on("child_added", snapshotDispositivo => {
       const dispositivo = snapshotDispositivo.key;
       const trechos = snapshotDispositivo.val() || {};
-      Object.keys(trechos).forEach(trechoId => {
-        const trecho = trechos[trechoId];
-        if (!trecho || !trecho.pontos) return;
-        const nome = trecho.nomebarco || dispositivo;
-
-        const listenerId = `${dispositivo}_${trechoId}`;
-        if (!competidores[listenerId]?.listenerCreated) {
-          escutarTrecho(dispositivo, trechoId, nome);
-          competidores[listenerId] = competidores[listenerId] || {};
-          competidores[listenerId].listenerCreated = true;
-        }
-      });
+      escutarDispositivo(dispositivo, trechos);
     });
 
     // 🔹 Remove trechos inativos (>1 minuto sem atualização)
