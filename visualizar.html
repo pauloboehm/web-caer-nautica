@@ -142,6 +142,15 @@
       });
     }
 
+    // 🔹 Inicializa todos os dispositivos já existentes
+    db.ref("rotas").once("value", snapshot => {
+      const rotas = snapshot.val() || {};
+      Object.keys(rotas).forEach(dispositivo => {
+        const trechos = rotas[dispositivo] || {};
+        escutarDispositivo(dispositivo, trechos);
+      });
+    });
+    
     // 🔹 Listener principal para novos dispositivos
     db.ref("rotas").on("child_added", snapshotDispositivo => {
       const dispositivo = snapshotDispositivo.key;
@@ -151,18 +160,18 @@
 
     // 🔹 Remove trechos inativos (>1 minuto sem atualização)
     setInterval(() => {
-  const agora = Date.now();
-  Object.keys(competidores).forEach(id => {
-    const comp = competidores[id];
-    if (agora - comp.lastUpdate > 60000) {
-      // remove marcador e trilha
-      if (comp.marker) map.removeLayer(comp.marker);
-      if (comp.polyline) map.removeLayer(comp.polyline);
-      // remove do objeto
-      delete competidores[id];
-    }
-  });
-}, 10000);
+      const agora = Date.now();
+      Object.keys(competidores).forEach(id => {
+        const comp = competidores[id];
+        if (agora - comp.lastUpdate > 60000) {
+          // remove marcador e trilha
+          if (comp.marker) map.removeLayer(comp.marker);
+          if (comp.polyline) map.removeLayer(comp.polyline);
+          // remove do objeto
+          delete competidores[id];
+        }
+      });
+    }, 10000);
 
     // 🔹 Centralizar
     function centralizarBarcos() {
