@@ -211,12 +211,16 @@
       });
     }, 10000);
 
-    // 🔹 Centralizar no mapa
     function centralizarBarcos() {
-      const coords = Object.values(competidores).map(c => c.marker.getLatLng());
-      if (coords.length > 0) {
-        map.fitBounds(L.latLngBounds(coords).pad(0.2));
+      const coords = Object.values(competidores)
+        .filter(c => c.marker)             // mantém apenas os que têm marker
+        .map(c => c.marker.getLatLng());   // agora é seguro chamar getLatLng
+      if (coords.length === 0) {
+        console.warn("Nenhum marcador encontrado para centralizar.");
+        return;
       }
+      const bounds = L.latLngBounds(coords);
+      map.fitBounds(bounds.pad(0.2));      // adiciona 20% de margem
     }
     document.getElementById("btnCentralizar").addEventListener("click", centralizarBarcos);
   </script>
