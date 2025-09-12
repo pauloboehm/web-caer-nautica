@@ -1,0 +1,21 @@
+{
+    "name": "Rastreador GPX CAER",
+    "short_name": "RastreioCAER",
+    "start_url": "/rastreador3.html",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#0000ff",
+    "icons": [
+      {
+        "src": "/icons/nautica192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "/icons/nautica512.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ]
+  }
+  

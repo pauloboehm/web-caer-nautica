@@ -59,6 +59,12 @@ img {
   max-width: 25%;
 }
 
+.logoCAER {
+  width: 36px;   /* tamanho inicial */
+  height: auto;  /* mantém proporção */
+  vertical-align: middle; /* alinha com o texto */
+}
+
 /* Tablet (largura até 1024px) */
 @media (max-width: 1024px) {
   body {

@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0000ff">
+<link rel="apple-touch-icon" href="/icons/nautica192.png">
 <title>Gravador GPX BD-VISUAL</title>
 <style>
   body { font-family: Arial, sans-serif; text-align: center; }
@@ -69,7 +72,7 @@
 </head>
 <body>
 
-<h2>Gravador GPX BD-V</h2>
+<h2>Gravador GPX</h2>
 
 <label for="competidorSelect">Competidor:</label>
 <select id="competidorSelect">
@@ -99,6 +102,7 @@
 </div>
 
 <script src="firedb.js"></script>
+<script src="appinstall.js"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
