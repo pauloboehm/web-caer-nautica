@@ -1,6 +1,8 @@
 export class CircuitCanvas {
   constructor(circuit, options = {}) {
     this._init(circuit, options);
+    this.#fixDPI();
+    this.draw();
   }
 
   // ================== Novo método interno para inicialização/reset ==================
@@ -30,7 +32,6 @@ export class CircuitCanvas {
     // DPI e fit view
     this._resizeHandler ??= () => this.#fixDPI(); // só cria se não existir
     this._clickHandler ??= (e) => this.#handleClick(e); // só cria se não existir
-    this.#fixDPI();
     this.#fitView();
     this.draw();
 
