@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="style.css">
+<title>Tutorial para rastreio</title>
+</head>
+<body>
+    <div id="menu-container"></div>
+    <main>
+        <h1>Tutorial</h1>
+        <p>Para utilizar o rastreador no seu celular, é necessário primeiro instalar o aplicativo.</p>
+        <img src="imagem/tut1.png" alt="tutorial" class="imgtut">
+        <img src="imagem/tut2.png" alt="tutorial" class="imgtut">
+        <img src="imagem/tut3.png" alt="tutorial" class="imgtut">
+        <img src="imagem/tut4.png" alt="tutorial" class="imgtut">
+        <img src="imagem/tut5.png" alt="tutorial" class="imgtut">
+        <p>Para iniciar o rastreio da posição, selecione o nome do barco. Antes do horário de largada 
+            do competidor, clique em iniciar para começar a gravação do trajeto.</p>
+        <img src="imagem/tut11.png" alt="tutorial" class="imgtut">
+        <img src="imagem/tut12.png" alt="tutorial" class="imgtut">
+        <img src="imagem/tut13.png" alt="tutorial" class="imgtut">
+        <img src="imagem/tut14.png" alt="tutorial" class="imgtut">
+        <img src="imagem/tut15.png" alt="tutorial" class="imgtut">
+        <p>Após o término, envie o arquivo baixado para nautica_caer@yahoo.com.br.</p>
+        <img src="imagem/tut21.png" alt="tutorial" class="imgtut" style="float: left; width:350px;">
+        <p>Durante o percurso, acompanhe as curvas do circuito pela imagem. O painel abaixo indica o rumo e
+             velocidade atuais, bem como a distância e hora estimada de passagem no próximo ponto, considerando
+             a velocidade atual. A velocidade a ser mantida em cada perna e a hora de passagem em cada ponto
+             estará indicada no calunga que será distribuído antes da prova.</p>
+    </main>
+    <script> // Carrega o menu externo
+        fetch("menu.html").then(response => response.text()).then(data => {
+            document.getElementById("menu-container").innerHTML = data;
+        });
+    </script>
+</body>
+</html>
