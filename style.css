@@ -106,9 +106,9 @@ img {
     max-width: 100%;
   }
   .imgtut {
-    max-width: 100%;
+    width: 100%;
   }
-  }
+}
 
 @media (orientation: landscape) {
   body {
