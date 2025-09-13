@@ -105,7 +105,11 @@ img {
   .fotoevento {
     max-width: 100%;
   }
-}
+  .imgtut {
+    max-width: 100%;
+    width: 5cm;
+  }
+  }
 
 @media (orientation: landscape) {
   body {
