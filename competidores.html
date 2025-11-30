@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Competidores - Firebase</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<style>
+    body { font-family: Arial; margin: 20px; }
+    .box { padding: 15px; border: 1px solid #ccc; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<h2>Competidores (Náutica CAER)</h2>
+
+<div class="box">
+    <h3>Lista de Barcos</h3>
+    <ul id="listaCompetidores"></ul>
+</div>
+
+<div class="box">
+    <h3>Adicionar novo competidor</h3>
+
+    <label>Nome do barco:</label><br>
+    <input type="text" id="inputNome" placeholder="Digite o nome"><br><br>
+
+    <label>Selecione o circuito:</label><br>
+    <select id="selectCircuito"></select><br><br>
+
+    <button onclick="adicionarCompetidor()">Adicionar</button>
+</div>
+
+<script src="firedb.js"></script>
+
+<script>
+
+// Inicializa
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// --------------------------------------------------
+// 2) CARREGAR LISTA DE COMPETIDORES
+// --------------------------------------------------
+function carregarCompetidores() {
+    const lista = document.getElementById("listaCompetidores");
+    lista.innerHTML = "";
+
+    db.ref("competidores").on("value", snap => {
+        lista.innerHTML = "";
+
+        snap.forEach(item => {
+            const comp = item.val();
+            const li = document.createElement("li");
+            li.textContent = `${comp.nome} — circuito: ${comp.circuitoAtual}`;
+            lista.appendChild(li);
+        });
+    });
+}
+
+
+// --------------------------------------------------
+// 3) CARREGAR OPÇÕES DE CIRCUITO NO SELECT
+// --------------------------------------------------
+function carregarCircuitos() {
+    const select = document.getElementById("selectCircuito");
+
+    db.ref("circuitos").once("value").then(snap => {
+        select.innerHTML = "";
+
+        snap.forEach(item => {
+            const circuito = item.val();
+            const opt = document.createElement("option");
+            opt.value = circuito.nome;
+            opt.textContent = circuito.nome;
+            select.appendChild(opt);
+        });
+    });
+}
+
+
+// --------------------------------------------------
+// 4) ADICIONAR NOVO COMPETIDOR
+// --------------------------------------------------
+function adicionarCompetidor() {
+    const nome = document.getElementById("inputNome").value.trim();
+    const circuito = document.getElementById("selectCircuito").value;
+
+    if (!nome) {
+        alert("Digite o nome do barco!");
+        return;
+    }
+
+    const novo = db.ref("competidores").push();
+
+    novo.set({
+        nome: nome,
+        modalidades: ["vela/motor"],
+        circuitoAtual: circuito
+    })
+    .then(() => {
+        alert("Competidor adicionado!");
+        document.getElementById("inputNome").value = "";
+    })
+    .catch(err => alert("Erro: " + err));
+}
+
+
+// --------------------------------------------------
+// 5) INICIALIZAÇÃO
+// --------------------------------------------------
+carregarCompetidores();
+carregarCircuitos();
+
+</script>
+
+</body>
+</html>
