@@ -7,8 +7,68 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <style>
-    body { font-family: Arial; margin: 20px; }
-    .box { padding: 15px; border: 1px solid #ccc; margin-bottom: 20px; }
+    *{
+        box-sizing: border-box;
+    }
+    body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        padding: 0;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .box {
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        background-color: #fafafa;
+    }
+    label {
+        font-size: 1.1rem;
+        display: block;
+        margin-bottom: 6px;
+    }
+    input, select {
+        width: 100%;
+        padding: 14px;
+        font-size: 1rem;
+        border-radius: 8px;
+        border: 1px solid #aaa;
+        margin-bottom: 15px;
+    }
+    button {
+        width: 100%;
+        padding: 16px;
+        font-size: 1.2rem;
+        border: none;
+        border-radius: 10px;
+        background-color: #007BFF;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    button:hover {
+        background-color: #0056b3;
+    }
+    /* ----- Responsividade para celulares ----- */
+    @media (max-width: 600px) {
+        body {
+            margin: 10px;
+        }
+        .box {
+            padding: 15px;
+        }
+        input, select {
+            font-size: 1.1rem;
+            padding: 16px;
+        }
+        button {
+            font-size: 1.3rem;
+            padding: 18px;
+        }
+    }
 </style>
 </head>
 <body>
