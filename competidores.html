@@ -89,28 +89,40 @@
         background-color: #0a5fe0;
     }
 
-    /* ----- Responsividade para telas pequenas ----- */
+    /* ----- Responsividade para celulares ----- */
     @media (max-width: 600px) {
 
-        body {
-            padding: 12px;
-            max-width: 100%;
-        }
-
-        .box {
-            padding: 18px;
-        }
-
-        input, select {
-            padding: 15px;
-            font-size: 1.1rem;
-        }
-
-        button {
-            padding: 18px;
-            font-size: 1.2rem;
-        }
+    body {
+        padding: 18px;
+        max-width: 420px;         /* torna mais estreito no celular */
     }
+
+    .box {
+        padding: 22px;
+    }
+
+    h3 {
+        font-size: 1.6rem;        /* título maior */
+        margin-bottom: 18px;
+    }
+
+    label {
+        font-size: 1.3rem;        /* labels maiores */
+        margin-bottom: 10px;
+    }
+
+    input, select {
+        font-size: 1.25rem;       /* texto bem maior */
+        padding: 20px;           /* aumenta área de toque */
+        border-radius: 14px;
+    }
+
+    button {
+        font-size: 1.35rem;       /* texto do botão maior */
+        padding: 22px;            /* botão grande estilo app */
+        border-radius: 14px;
+    }
+}
 </style>
 </head>
 <body>
