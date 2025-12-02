@@ -7,66 +7,108 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <style>
-    *{
+    * {
         box-sizing: border-box;
     }
+
     body {
-        font-family: Arial, sans-serif;
-        margin: 20px;
-        padding: 0;
-        max-width: 800px;
+        font-family: "Segoe UI", Roboto, Arial, sans-serif;
+        background: #f2f3f7;              /* fundo estilo app */
+        margin: 0;
+        padding: 16px;
+        max-width: 500px;                 /* largura ideal de app */
         margin-left: auto;
         margin-right: auto;
     }
+
+    h3 {
+        font-weight: 600;
+        margin-bottom: 15px;
+        color: #222;
+    }
+
     .box {
         padding: 20px;
-        border: 1px solid #ccc;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        background-color: #fafafa;
+        background: white;
+        border-radius: 14px;
+        margin-bottom: 22px;
+
+        /* sombra suave estilo iOS */
+        box-shadow: 0 4px 10px rgba(0,0,0,0.06);
     }
+
     label {
-        font-size: 1.1rem;
+        font-size: 1.05rem;
+        font-weight: 500;
         display: block;
         margin-bottom: 6px;
+        color: #444;
     }
+
     input, select {
         width: 100%;
         padding: 14px;
-        font-size: 1rem;
-        border-radius: 8px;
-        border: 1px solid #aaa;
-        margin-bottom: 15px;
+        font-size: 1.05rem;
+        border-radius: 10px;
+        border: 1px solid #d0d0d0;
+        background: #fafafa;
+
+        /* leve sombra interna para profundidade */
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+        margin-bottom: 18px;
+        transition: border 0.2s, background 0.2s;
     }
+
+    input:focus,
+    select:focus {
+        border-color: #007BFF;
+        background: #fff;
+        outline: none;
+    }
+
     button {
         width: 100%;
         padding: 16px;
-        font-size: 1.2rem;
+        font-size: 1.15rem;
+        border-radius: 12px;
         border: none;
-        border-radius: 10px;
-        background-color: #007BFF;
+        background-color: #1976FF;
         color: white;
         cursor: pointer;
-        font-weight: bold;
+        font-weight: 600;
+
+        /* animação suave */
+        transition: background-color 0.2s, transform 0.1s;
     }
+
+    button:active {
+        transform: scale(0.98);
+    }
+
     button:hover {
-        background-color: #0056b3;
+        background-color: #0a5fe0;
     }
-    /* ----- Responsividade para celulares ----- */
+
+    /* ----- Responsividade para telas pequenas ----- */
     @media (max-width: 600px) {
+
         body {
-            margin: 10px;
+            padding: 12px;
+            max-width: 100%;
         }
+
         .box {
-            padding: 15px;
-        }
-        input, select {
-            font-size: 1.1rem;
-            padding: 16px;
-        }
-        button {
-            font-size: 1.3rem;
             padding: 18px;
+        }
+
+        input, select {
+            padding: 15px;
+            font-size: 1.1rem;
+        }
+
+        button {
+            padding: 18px;
+            font-size: 1.2rem;
         }
     }
 </style>
