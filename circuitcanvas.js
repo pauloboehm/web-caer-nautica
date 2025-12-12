@@ -298,47 +298,47 @@ export class CircuitCanvas {
     this.ctx.fillText("N", 0, -26);
     this.ctx.restore();
   }
-}
 
-#drawScaleBar() {
-  const W = this.canvas.clientWidth || this.canvas.width;
-  const H = this.canvas.clientHeight || this.canvas.height;
+  #drawScaleBar() {
+    const W = this.canvas.clientWidth || this.canvas.width;
+    const H = this.canvas.clientHeight || this.canvas.height;
 
-  const margin = 20;        // distância das bordas
-  const barPx = 100;        // tamanho da barra em pixels (na tela)
+    const margin = 20;        // distância das bordas
+    const barPx = 100;        // tamanho da barra em pixels (na tela)
 
-  // conversão pixel → mundo (unidades XY da projeção)
-  const worldUnits = barPx / this.scale;
+    // conversão pixel → mundo (unidades XY da projeção)
+    const worldUnits = barPx / this.scale;
 
-  // conversão mundo → metros aproximados
-  // referência do projector (1 unidade X = deltaLon * cosLat; 1 unidade Y = deltaLat)
-  const { cosLat } = this.projector.ref;
+    // conversão mundo → metros aproximados
+    // referência do projector (1 unidade X = deltaLon * cosLat; 1 unidade Y = deltaLat)
+    const { cosLat } = this.projector.ref;
 
-  // assumimos que o eixo X domina a escala horizontal
-  // 1 unidade de X corresponde a (deltaLon * cosLat) graus
-  // cada grau vale 111320 metros
-  const meters = worldUnits * 111320;
+    // assumimos que o eixo X domina a escala horizontal
+    // 1 unidade de X corresponde a (deltaLon * cosLat) graus
+    // cada grau vale 111320 metros
+    const meters = worldUnits * 111320;
 
-  // desenha a barra
-  this.ctx.save();
-  this.ctx.strokeStyle = "black";
-  this.ctx.lineWidth = 2;
+    // desenha a barra
+    this.ctx.save();
+    this.ctx.strokeStyle = "black";
+    this.ctx.lineWidth = 2;
 
-  const x0 = W - margin - barPx;
-  const y0 = H - margin;
+    const x0 = W - margin - barPx;
+    const y0 = H - margin;
 
-  this.ctx.beginPath();
-  this.ctx.moveTo(x0, y0);
-  this.ctx.lineTo(x0 + barPx, y0);
-  this.ctx.stroke();
+    this.ctx.beginPath();
+    this.ctx.moveTo(x0, y0);
+    this.ctx.lineTo(x0 + barPx, y0);
+    this.ctx.stroke();
 
-  // texto (arredondar para metros inteiros)
-  const txt = `${Math.round(meters)} m`;
-  this.ctx.font = "14px Arial";
-  this.ctx.textAlign = "right";
-  this.ctx.textBaseline = "bottom";
-  this.ctx.fillStyle = "black";
-  this.ctx.fillText(txt, x0 + barPx, y0 - 6);
+    // texto (arredondar para metros inteiros)
+    const txt = `${Math.round(meters)} m`;
+    this.ctx.font = "14px Arial";
+    this.ctx.textAlign = "right";
+    this.ctx.textBaseline = "bottom";
+    this.ctx.fillStyle = "black";
+    this.ctx.fillText(txt, x0 + barPx, y0 - 6);
 
-  this.ctx.restore();
+    this.ctx.restore();
+  }
 }
