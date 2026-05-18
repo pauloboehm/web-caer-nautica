@@ -16,3 +16,6 @@ Gera um arquivo GPX com pontos a cada 1 segundo para uso nas competições de ra
 
 **visualizar.html** permite observar em tempo real os competidores buscando os dados no Firebase.
 
+## Rastreador
+
+**competidores.html** permite adicionar competidores e selecionar o percurso individual.
