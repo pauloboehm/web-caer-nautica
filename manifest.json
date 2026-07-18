@@ -1,7 +1,7 @@
 {
     "name": "Rastreador GPX CAER",
     "short_name": "RastreioCAER",
-    "start_url": "./rastreador3.html",
+    "start_url": "./rastreador4.html",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#0000ff",
