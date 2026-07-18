@@ -1,7 +1,7 @@
 const CACHE_NAME = "rastreador-gpx-v1";
 const URLS_TO_CACHE = [
   "/",
-  "/rastreador3.html",
+  "/rastreador4.html",
   "/firedb.js",
   "/appinstall.js",
   "/circuitcanvas.js",
