@@ -13,13 +13,19 @@
     box-sizing: border-box;
   }
 
+    html, body {
+      /* Aplica o bloqueio no container de nível mais alto do navegador */
+      overscroll-behavior-y: contain !important;
+      overscroll-behavior: contain !important;
+    }
+    
   body {
     font-family: Arial, sans-serif;
     text-align: center;
     margin: 0;
     padding: 10px;
     background-color: #f5f5f5;
-    overscroll-behavior-y: contain;
+    touch-action: pan-x pan-y;
   }
 
   /* CONTAINER PRINCIPAL PARA TRAVAR AS LARGURAS */
