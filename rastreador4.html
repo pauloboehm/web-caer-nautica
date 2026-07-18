@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0000ff">
+<link rel="apple-touch-icon" href="/icons/nautica192.png">
+<title>Gravador GPX BD-VISUAL</title>
+<style>
+  /* GERAL & RESPONSIVIDADE BASE */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 10px;
+    background-color: #f5f5f5;
+  }
+
+  /* CONTAINER PRINCIPAL PARA TRAVAR AS LARGURAS */
+  .app-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ELEMENTOS DE FORMULÁRIO */
+  #dbstatus {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #666;
+  }
+
+  select {
+    padding: 0.8rem 1.2rem;
+    font-size: 1.2rem;
+    width: 100%;
+    max-width: 300px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+
+  /* CONTAINER DOS BOTÕES */
+  .botoes-container {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 15px;
+  }
+
+  .botoes-container button {
+    flex: 1;
+    padding: 0.8rem;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+
+  #startBtn { background-color: #28a745; color: white; }
+  #stopBtn { background-color: #dc3545; color: white; }
+  #baixarBtn { background-color: #007bff; color: white; }
+
+  .botoes-container button:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+
+  /* CANVAS CORRIGIDO PARA ANDROID/IPHONE */
+  canvas {
+    background-color: lightblue;
+    border: 1px solid black;
+    display: block;
+    width: 100% !important;   /* Força o CSS a mandar na largura física */
+    max-width: 600px;         /* Limita exatamente no mesmo tamanho do painel */
+    height: auto;
+    margin-bottom: 15px;
+  }
+
+  /* PAINEL DE INFORMAÇÕES ABAIXO DO CANVAS */
+  #relogio {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  #infoPrec {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+    background-color: #6c757d;
+    margin-bottom: 15px;
+  }
+
+  .info-painel {
+    width: 100%;
+    max-width: 600px;
+    font-family: Arial, sans-serif;
+    font-size: 1.4rem;
+    background: #020303;
+    padding: 10px 15px;
+    border-radius: 8px;
+    text-align: left;
+  }
+
+  .info-linha {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 0, 0.3);
+  }
+
+  .info-linha:last-child {
+    border-bottom: none;
+  }
+
+  .info-label {
+    font-weight: bold;
+    color: yellow;
+  }
+
+  .info-valor {
+    color: yellow;
+  }
+
+  /* ADAPTAÇÕES PARA TELAS MAIORES OU DETALHES */
+  @media (max-width: 600px) {
+    body { font-size: 18px; }
+    .info-painel { font-size: 1.4rem; }
+    #relogio { font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <h2>Gravador GPX</h2>
+
+  <div>
+    <label for="competidorSelect"><b>Competidor:</b> </label>
+    <select id="competidorSelect">
+      <option value="">-- Escolha --</option>
+    </select>
+  </div>
+
+  <div id="dbstatus">Autenticando usuário...</div>
+
+  <div class="botoes-container">
+    <button id="startBtn">Iniciar</button>
+    <button id="stopBtn" disabled>Terminar</button>
+    <button id="baixarBtn" disabled>Baixar</button>
+  </div>
+
+  <!-- O Canvas fica exatamente aqui no meio do fluxo -->
+  <canvas id="mapCanvas"></canvas>
+
+  <div id="relogio">--:--:--</div>
+  <div id="infoPrec">Precisão: Aguardando...</div>
+
+  <div class="info-painel">
+    <div class="info-linha"><span class="info-label">Rumo:</span><span id="infoRumo" class="info-valor">0° N</span></div>
+    <div class="info-linha"><span class="info-label">Velocidade:</span><span id="infoVel" class="info-valor">0 Mph</span></div>
+    <div class="info-linha"><span class="info-label">Próximo ponto:</span><span id="infoProx" class="info-valor">0</span></div>
+    <div class="info-linha"><span class="info-label">ETA:</span><span id="infoETA" class="info-valor">00:00:00</span></div>
+    <div class="info-linha"><span class="info-label">Distância ponto:</span><span id="infoETD" class="info-valor">0 m</span></div>
+    <div class="info-linha"><span class="info-label">Distância total:</span><span id="infoDist" class="info-valor">0 km</span></div>
+    <div class="info-linha"><span class="info-label">Tempo total:</span><span id="infoTempo" class="info-valor">0h 0m 0s</span></div>
+  </div>
+
+</div>
+
+<script src="firedb.js"></script>
+<script src="appinstall.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, get, push, set, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { CircuitCanvas } from "./circuitcanvas.js";
+
+let circuito = {
+      nome: "Regata Ilha",
+      pontos: [
+        { lat: -27.5954, lon: -48.5480, hso: 120 },
+        { lat: -27.6000, lon: -48.5500, hso: 180 },
+        { lat: -27.6050, lon: -48.5520, hso: 200 },
+        { lat: -27.6100, lon: -48.5550, hso: 150 }
+      ]
+    };
+
+window.firebase_app = initializeApp(firebaseConfig);
+window.firebase_db = getDatabase(window.firebase_app);
+const auth = getAuth(window.firebase_app);
+
+let currentUser = null;
+let pontos = [];
+let watchId = null;
+let distanciaTotal = 0;
+let inicioTempo = null;
+let rotaRef = null;
+let cadencia_gravacao = 1000;
+let watch_tempo = 0;
+let proximoPonto = 0;
+let wakeLock = null;
+
+const canvas = document.getElementById("mapCanvas");
+const viewer = new CircuitCanvas(circuito, { canvasId: "mapCanvas" });
+
+// FUNÇÃO AJUSTAR CANVAS REESCRITA E CORRIGIDA PARA AMBOS OS SISTEMAS
+function ajustarCanvas(){
+  const dpr = window.devicePixelRatio || 1;
+  
+  // Captura o tamanho exato da largura do body descontando os paddings laterais
+  let larguraDisponivel = Math.min(document.body.offsetWidth - 20, 600);
+  if (larguraDisponivel < 0) larguraDisponivel = 300;
+
+  let escala = 1;
+  if(window.innerHeight < window.innerWidth) escala = 0.6; // Modo Paisagem
+  
+  // Aplica as dimensões físicas no canvas
+  canvas.width = larguraDisponivel * dpr;
+  canvas.height = (larguraDisponivel * escala) * dpr;
+  
+  // Trata e reseta a matriz de transformação do contexto para evitar bugs no Android
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+
+  if(viewer) viewer.draw();
+}
+
+window.addEventListener("load", ajustarCanvas);
+window.addEventListener("resize", ajustarCanvas);
+
+// Função simples de conversão GPS → Canvas
+const mapaAtual = { arquivo: "semmapa.png", minLat: 0, maxLat: 1, minLon: 0, maxLon: 1 };
+function gpsParaCanvas(lat, lon){
+  const {minLat,maxLat,minLon,maxLon} = mapaAtual;
+  const x = (lon-minLon)/(maxLon-minLon)*canvas.clientWidth;
+  const y = canvas.clientHeight - (lat-minLat)/(maxLat-minLat)*canvas.clientHeight;
+  return {x,y};
+}
+
+// Distância entre dois pontos
+function distanciaMetros(lat1,lon1,lat2,lon2){
+  const R=6371000;
+  const toRad=x=>x*Math.PI/180;
+  const dLat=toRad(lat2-lat1);
+  const dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  return R*c;
+}
+
+// Rumo em graus
+function calcularRumo(lat1, lon1, lat2, lon2) {
+  const toRad = x => x * Math.PI / 180;
+  const toDeg = x => x * 180 / Math.PI;
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+            Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  let brng = toDeg(Math.atan2(y, x));
+  return (brng + 360) % 360;
+}
+
+function rumoCardinal(brng) {
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return dirs[Math.round(brng / 45) % 8];
+}
+
+function cruzouLinhaLargada(lat, lon) {
+  const p0 = viewer.circuit.pontos[0];
+  const p1 = viewer.circuit.pontos[1];
+  
+  const P = toXY(lat, lon, p0.lat, p0.lon);
+  const A = {x: 0, y: 0};
+  const B = toXY(p1.lat, p1.lon, p0.lat, p0.lon);
+
+  const v = {x: B.x - A.x, y: B.y - A.y};
+  const w = {x: P.x - A.x, y: P.y - A.y};
+  const dot = v.x * w.x + v.y * w.y;
+
+  return dot > 0;
+}
+
+function toXY(lat, lon, lat0, lon0) {
+  const R = 6371000;
+  const x = (lon - lon0) * Math.PI/180 * R * Math.cos(lat0 * Math.PI/180);
+  const y = (lat - lat0) * Math.PI/180 * R;
+  return {x, y};
+}
+
+function distanciaPontoSegmento(P, A, B) {
+  const AB = {x: B.x - A.x, y: B.y - A.y};
+  const AP = {x: P.x - A.x, y: P.y - A.y};
+  const ab2 = AB.x*AB.x + AB.y*AB.y;
+
+  if (ab2 === 0) return Math.hypot(AP.x, AP.y);
+
+  let t = (AP.x*AB.x + AP.y*AB.y) / ab2;
+  t = Math.max(0, Math.min(1, t));
+  const proj = {x: A.x + t*AB.x, y: A.y + t*AB.y};
+  return Math.hypot(P.x - proj.x, P.y - proj.y);
+}
+
+function atualizarProximoPonto(lat, lon) {
+  const N = viewer.circuit.pontos.length;
+  if (proximoPonto >= N-1) return;
+  if (proximoPonto <= 0){
+    if (cruzouLinhaLargada(lat, lon)) proximoPonto = 1;
+    return;
+  }
+
+  const P = toXY(lat, lon, viewer.circuit.pontos[proximoPonto].lat, viewer.circuit.pontos[proximoPonto].lon);
+
+  const A = toXY(viewer.circuit.pontos[proximoPonto-1].lat, viewer.circuit.pontos[proximoPonto-1].lon,
+                 viewer.circuit.pontos[proximoPonto].lat, viewer.circuit.pontos[proximoPonto].lon);
+  const B = {x:0, y:0};
+  const distAnterior = distanciaPontoSegmento(P, A, B);
+
+  const C = toXY(viewer.circuit.pontos[proximoPonto+1].lat, viewer.circuit.pontos[proximoPonto+1].lon,
+                 viewer.circuit.pontos[proximoPonto].lat, viewer.circuit.pontos[proximoPonto].lon);
+  const distSeguinte = distanciaPontoSegmento(P, B, C);
+
+  if (distSeguinte < distAnterior) {
+    proximoPonto++;
+    console.log("🚩 Avançou para ponto", proximoPonto);
+  }
+}
+
+function estimadaProximoPonto(lat, lon, vel) {
+  if(proximoPonto >= viewer.circuit.pontos.length) return { ETA:`Circuito completo`, ETD:"-"};
+  atualizarProximoPonto(lat, lon);
+  const proxpt = viewer.circuit.pontos[proximoPonto];
+  const dist = distanciaMetros(lat, lon, proxpt.lat, proxpt.lon);
+  const velMS = Math.max(vel * 1609.34 / 3600, 0.1);
+  const agora = new Date();
+  const msFuturo = agora.getTime() + (dist / velMS) * 1000;
+  const tempoDecorrido = new Date(msFuturo);
+  const horas = String(tempoDecorrido.getHours()).padStart(2,'0');
+  const minutos = String(tempoDecorrido.getMinutes()).padStart(2,'0');
+  const segundos = String(tempoDecorrido.getSeconds()).padStart(2,'0');
+  return {ETA:`${horas}:${minutos}:${segundos}`, ETD:`${dist.toFixed(1)} m`};
+}
+
+// Atualiza informações na tela
+function atualizarInfo(){
+  let vel_api=0;
+  let rumo_api = "-";
+  let rumo_apiTxt = "-";
+  let proxFmt = { ETA: "-", ETD: "-"};
+  if(pontos.length>=2){
+    const p1=pontos[pontos.length-2];
+    const p2=pontos[pontos.length-1];
+    const dist=distanciaMetros(p1.lat,p1.lon,p2.lat,p2.lon);
+    distanciaTotal+=dist;
+    const dt=(new Date(p2.time)-new Date(p1.time))/1000;
+    vel_api = dt>0 ? (dist/dt*2.23694).toFixed(1) : 0;
+
+    const accdisplay = document.getElementById("infoPrec");
+    accdisplay.innerText = `Precisão: ${p2.accuracy.toFixed(2)} m`;
+    if(p2.accuracy < 2.5) accdisplay.style.backgroundColor = "green";
+    else if(p2.accuracy < 5) accdisplay.style.backgroundColor = "orange";
+    else accdisplay.style.backgroundColor = "red";
+
+    if(p2.heading == null) rumo_api = calcularRumo(p1.lat, p1.lon, p2.lat, p2.lon).toFixed(0);
+    else rumo_api = p2.heading.toFixed(0);
+    rumo_apiTxt = rumoCardinal(rumo_api);
+
+    proxFmt = estimadaProximoPonto(p2.lat, p2.lon, vel_api);
+  }
+  const tempoDecorrido = inicioTempo ? Math.floor((Date.now()-inicioTempo)/1000) : 0;
+  const horas = Math.floor(tempoDecorrido / 3600);
+  const minutos = Math.floor((tempoDecorrido % 3600) / 60);
+  const segundos = tempoDecorrido % 60;
+  const tempoFmt = `${horas}h ${minutos}m ${segundos}s`;
+
+  document.getElementById("infoVel").textContent = vel_api + " Mph";
+  document.getElementById("infoRumo").textContent = rumo_api + "° " + rumo_apiTxt;
+  document.getElementById("infoProx").textContent = proximoPonto;
+  document.getElementById("infoETA").textContent = proxFmt.ETA;
+  document.getElementById("infoETD").textContent = proxFmt.ETD;
+  document.getElementById("infoDist").textContent = (distanciaTotal/1000).toFixed(2) + " km";
+  document.getElementById("infoTempo").textContent = tempoFmt;
+}
+
+async function carregarCadencia() {
+  try {
+    const cadenciaRef = ref(window.firebase_db, "config/globalSettings/taxaAtualizacao");
+    const snapshot = await get(cadenciaRef);
+    if (snapshot.exists()) {
+      cadencia_gravacao = snapshot.val();
+    } else {
+      cadencia_gravacao = 1000;
+    }
+  } catch (err) {
+    console.error("Erro ao buscar taxa de atualização:", err);
+    cadencia_gravacao = 1000;
+  }
+}
+
+async function carregarCompetidores() {
+  const select = document.getElementById("competidorSelect");
+  select.innerHTML = '<option value="">-- Escolha --</option>';
+  try {
+    const db = getDatabase();
+    const snapshot = await get(ref(db, "competidores"));
+    if (!snapshot.exists()) return;
+
+    snapshot.forEach(child => {
+      const opt = document.createElement("option");
+      opt.value = child.key;
+      const data = child.val();
+      opt.textContent = data.nome ?? child.key;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error("Erro ao carregar competidores:", err);
+  }
+}
+
+async function carregarCircuitoPorNome(nomeCircuito) {
+  if (!nomeCircuito) return null;
+  try {
+    const db = window.firebase_db;
+    const snapshot = await get(ref(db, "circuitos"));
+    if (snapshot.exists()) {
+      let circuitoEncontrado = null;
+      let chaveCircuito = null;
+      snapshot.forEach(child => {
+        const data = child.val();
+        if (data.nome === nomeCircuito) {
+          chaveCircuito = child.key;
+          circuitoEncontrado = data;
+        }
+      });
+      if (circuitoEncontrado) {
+        console.log("🏁 Circuito encontrado:", chaveCircuito, circuitoEncontrado);
+        if (viewer) {
+          viewer.reset(circuitoEncontrado, {
+            canvasId: "mapCanvas",
+            follow: true,
+            rotateToHeading: true
+          });
+        }
+        circuito = circuitoEncontrado;
+        ajustarCanvas(); // Reajusta após carregar as novas coordenadas
+        return { id: chaveCircuito, ...circuitoEncontrado };
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao buscar circuito por nome:", err);
+  }
+  return null;
+}
+
+// Autenticação anônima Firebase
+signInAnonymously(auth).catch(err=>console.error(err));
+onAuthStateChanged(auth,user=>{
+  if(user){
+    currentUser = user;
+    document.getElementById("dbstatus").innerText = `Usuário autenticado: ${user.uid}`;
+    carregarCadencia();
+    carregarCompetidores();
+  }
+});
+
+document.getElementById("competidorSelect").addEventListener("change", async (e) => {
+  const competidorId = e.target.value;
+  if (!competidorId) return;
+  try {
+    const competidorRef = ref(window.firebase_db, `competidores/${competidorId}`);
+    const snapshot = await get(competidorRef);
+    if (snapshot.exists()) {
+      const comp = snapshot.val();
+      if (comp.circuitoAtual) carregarCircuitoPorNome(comp.circuitoAtual);
+    }
+  } catch (err) {
+    console.error("Erro ao buscar competidor:", err);
+  }
+});
+
+function gerarGPX(pontos) {
+  const header = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="JS GPX Recorder" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>Rota</name><trkseg>`;
+  const footer = `</trkseg></trk></gpx>`;
+  const pts = pontos.map(p =>
+    `<trkpt lat="${p.lat}" lon="${p.lon}">\n  <time>${p.time}</time>\n  <speed>${p.speed}</speed>\n  <course>${p.heading}</course>\n  <ele>${p.ele}</ele>\n  <accuracy>${p.accuracy}</accuracy>\n</trkpt>`
+  ).join("\n");
+  return header + "\n" + pts + "\n" + footer;
+}
+
+function iniciarGravacao(){
+  if(!currentUser){
+    alert("Aguardando autenticação...");
+    return;
+  }
+  pontos=[];
+  distanciaTotal=0;
+  proximoPonto = 0;
+  inicioTempo=Date.now();
+
+  const db = getDatabase();
+  const rotasUsuarioRef = ref(db, `rotas/${currentUser.uid}`);
+  rotaRef = push(rotasUsuarioRef);
+  const selcomp = document.getElementById("competidorSelect");
+  let nome_barco = selcomp.options[selcomp.selectedIndex].text;
+  set(rotaRef, { timestamp: new Date().toISOString(), nomebarco: nome_barco });
+
+  watch_tempo = Date.now();
+  watchId = navigator.geolocation.watchPosition(
+    pos=>{
+      let agora = Date.now();
+      if (agora - watch_tempo < cadencia_gravacao) return;
+      else watch_tempo = agora;
+      const ponto={
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        time: new Date().toISOString(),
+        speed: pos.coords.speed,
+        heading: pos.coords.heading,
+        accuracy: pos.coords.accuracy,
+        ele: pos.coords.altitude
+      };
+      pontos.push(ponto);
+      atualizarInfo();
+      viewer.updateLive({ lat: ponto.lat, lon: ponto.lon, heading: ponto.heading });
+
+      if (rotaRef) {
+        const pontosRef = child(rotaRef, "pontos");
+        const pontoRef = push(pontosRef);
+        set(pontoRef, ponto);
+      }
+    },
+    err=>console.error("Erro GPS:",err),
+    { enableHighAccuracy:true, timeout:5000, maximumAge:0 }
+  );
+}
+
+function pararGravacao(){
+  if(watchId!==null){
+    navigator.geolocation.clearWatch(watchId);
+    watchId=null;
+  }
+}
+
+async function ativarWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request("screen");
+    }
+  } catch (err) {
+    console.error("Erro ao ativar Wake Lock:", err);
+  }
+}
+
+async function desativarWakeLock() {
+  if (wakeLock) await wakeLock.release();
+  wakeLock = null;
+}
+
+// Gatilhos dos Botões
+document.getElementById("startBtn").onclick=()=>{
+  iniciarGravacao();
+  ativarWakeLock();
+  document.getElementById("infoPrec").innerText = "Aguardando GPS...";
+  document.getElementById("startBtn").disabled=true;
+  document.getElementById("stopBtn").disabled=false;
+  document.getElementById("baixarBtn").disabled=true;
+  document.getElementById("competidorSelect").disabled=true;
+};
+
+document.getElementById("stopBtn").onclick=()=>{
+  pararGravacao();
+  desativarWakeLock();
+  document.getElementById("infoPrec").innerText = "Gravação suspensa";
+  document.getElementById("startBtn").disabled=false;
+  document.getElementById("stopBtn").disabled=true;
+  document.getElementById("baixarBtn").disabled=false;
+  document.getElementById("competidorSelect").disabled=false;
+};
+
+document.getElementById("baixarBtn").onclick=()=>{
+  const gpx = gerarGPX(pontos);
+  const blob = new Blob([gpx], { type: "application/gpx+xml" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "trilha.gpx";
+  a.click();
+  URL.revokeObjectURL(url);
+  alert("Arquivo GPX gerado e baixado!");
+}
+
+function atualizarRelogio() {
+    const agora = new Date();
+    document.getElementById("relogio").textContent = `${String(agora.getHours()).padStart(2,'0')}:${String(agora.getMinutes()).padStart(2,'0')}:${String(agora.getSeconds()).padStart(2,'0')}`;
+}
+setInterval(atualizarRelogio, 1000);
+
+// Executa o ajuste inicial
+ajustarCanvas();
+</script>
+</body>
+</html>
