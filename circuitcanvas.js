@@ -112,6 +112,8 @@ export class CircuitCanvas {
       this.ctx.translate(-W / 2, -H / 2);
     }
 
+    this.#drawCorridor();
+      
     this.#drawCircuit();
     this.#drawTrail();
     this.#drawBoat();
@@ -346,4 +348,43 @@ export class CircuitCanvas {
 
     this.ctx.restore();
   }
+    
+    #drawCorridor() {
+        const pts = this.circuit.pontos;
+        if (!pts || pts.length < 2) return;
+
+        // Recupera o valor do Firebase configurado nas opções ou assume o padrão de 50m
+        const afastamentoMetros = this.circuit.afastamento ?? 50;
+
+        // Converte metros para unidades de mundo (baseado na lógica do seu #drawScaleBar)
+        const worldUnits = afastamentoMetros / 111320;
+
+        // Converte de unidades de mundo para pixels na tela usando a escala atual
+        const larguraPixelsParaUmLado = worldUnits * this.scale;
+
+        this.ctx.save();
+        
+        // Configura a cor amarela com 50% de transparência (rgba)
+        this.ctx.strokeStyle = "rgba(255, 255, 0, 0.5)";
+        
+        // O traço do canvas expande para ambos os lados, então a largura total é o dobro
+        this.ctx.lineWidth = larguraPixelsParaUmLado * 2;
+        
+        // Garante junções e pontas suaves nas curvas do circuito
+        this.ctx.lineCap = "round";
+        this.ctx.lineJoin = "round";
+
+        // Desenha o caminho ao longo dos pontos do circuito
+        this.ctx.beginPath();
+        let s0 = this.#worldToScreen(this.projector.toXY(pts[0].lat, pts[0].lon));
+        this.ctx.moveTo(s0.x, s0.y);
+        
+        for (let i = 1; i < pts.length; i++) {
+          const s = this.#worldToScreen(this.projector.toXY(pts[i].lat, pts[i].lon));
+          this.ctx.lineTo(s.x, s.y);
+        }
+        
+        this.ctx.stroke();
+        this.ctx.restore();
+      }
 }

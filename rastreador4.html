@@ -420,6 +420,21 @@ async function carregarCadencia() {
   }
 }
 
+async function carregarAfastamento() {
+  try {
+    const afastamentoRef = ref(window.firebase_db, "config/globalSettings/taxaAfastamento");
+    const snapshot = await get(afastamentoRef);
+    if (snapshot.exists()) {
+      circuito.afastamento = snapshot.val();
+    } else {
+      circuito.afastamento = 50;
+    }
+  } catch (err) {
+    console.error("Erro ao buscar taxa de atualização:", err);
+    circuito.afastamento = 50;
+  }
+}
+    
 async function carregarCompetidores() {
   const select = document.getElementById("competidorSelect");
   select.innerHTML = '<option value="">-- Escolha --</option>';
@@ -482,6 +497,7 @@ onAuthStateChanged(auth,user=>{
     currentUser = user;
     document.getElementById("dbstatus").innerText = `Usuário autenticado: ${user.uid}`;
     carregarCadencia();
+    carregarAfastamento();
     carregarCompetidores();
   }
 });

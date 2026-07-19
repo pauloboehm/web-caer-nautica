@@ -1,4 +1,4 @@
-const CACHE_NAME = "rastreador-gpx-v4";
+const CACHE_NAME = "rastreador-gpx-v5";
 const URLS_TO_CACHE = [
   "/",
   "/rastreador4.html",
