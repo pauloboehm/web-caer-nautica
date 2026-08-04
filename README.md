@@ -14,6 +14,8 @@ Gera um arquivo GPX com pontos a cada 1 segundo para uso nas competições de ra
 
 **rastreador3.html** usa navigator.watchposition para acompanhar o percurso _em um canvas com circuito proveniente do Firebase_, desenha na tela, grava no banco de dados Firebase e permite baixar o arquivo ao final.
 
+**rastreador4.html** atualiza o rastreador3 com um corredor lateral para identificação do afastamento lateral e impede a atualização nos sistemas android.
+
 **visualizar.html** permite observar em tempo real os competidores buscando os dados no Firebase.
 
 **competidores.html** permite adicionar competidores e selecionar o percurso individual.
