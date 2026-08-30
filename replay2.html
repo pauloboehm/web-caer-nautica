@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Replay de Rotas - Regata</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-rotatedmarker/leaflet.rotatedMarker.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; }
+    
+    header { background: #001f3f; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+    header h2 { margin: 0; font-size: 1.3rem; }
+    
+    #btnCentralizar {
+      padding: 8px 12px; background: #0074D9; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;
+    }
+    #btnCentralizar:hover { background: #0056b3; }
+
+    .main-container { display: flex; flex: 1; overflow: hidden; }
+    
+    /* Painel de Controle Lateral */
+    #sidebar { width: 280px; background: #f4f4f4; border-right: 1px solid #ddd; padding: 15px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+    #sidebar h3 { margin-top: 0; font-size: 1.1rem; color: #333; border-bottom: 2px solid #001f3f; padding-bottom: 5px; }
+    
+    .sidebar-actions { display: flex; gap: 5px; margin-bottom: 10px; }
+    .btn-small { padding: 6px 10px; font-size: 0.8rem; background: #e0e0e0; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; flex: 1; font-weight: bold; }
+    .btn-small:hover { background: #d0d0d0; }
+
+    .competidor-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.95rem; }
+    .color-box { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+    #map { flex: 1; height: 100%; }
+
+    /* Painel de Controle Inferior (Slider + Replay) */
+    #timeline-panel { background: #fff; border-top: 1px solid #ddd; padding: 15px 20px; display: flex; flex-direction: column; gap: 10px; }
+    .slider-row { display: flex; align-items: center; gap: 12px; }
+    #timeSlider { flex: 1; cursor: pointer; }
+    #currentTimeDisplay { font-family: monospace; font-size: 1.1rem; font-weight: bold; color: #001f3f; min-width: 160px; text-align: right; }
+    
+    .controls-row { display: flex; align-items: center; gap: 10px; }
+    .btn-control { padding: 6px 16px; background: #2ECC40; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.95rem; }
+    .btn-control:hover { background: #27ae60; }
+    .btn-control:disabled { background: #ccc; cursor: not-allowed; }
+    
+    .speed-select { padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h2>⛵ Replay Histórico de Rotas</h2>
+    <button id="btnCentralizar">🔍 Centralizar no Replay</button>
+  </header>
+
+  <div class="main-container">
+    <div id="sidebar">
+      <h3>Lista de Barcos</h3>
+      <div class="sidebar-actions">
+        <button id="btnToggleTodos" class="btn-small">Marcar/Desmarcar Todos</button>
+      </div>
+      <div id="competidoresLista">Carregando barcos...</div>
+    </div>
+    
+    <div id="map"></div>
+  </div>
+
+  <div id="timeline-panel">
+    <div class="slider-row">
+      <button id="btnPlayPause" class="btn-control" disabled>▶ Play</button>
+      
+      <label for="speedSelect"><b>Velocidade:</b></label>
+      <select id="speedSelect" class="speed-select">
+        <option value="0.5">0.5x</option>
+        <option value="1" selected>1x</option>
+        <option value="2">2x</option>
+        <option value="5">5x</option>
+        <option value="10">10x</option>
+      </select>
+
+      <label for="timeSlider" style="margin-left: 10px;"><b>Linha do Tempo:</b></label>
+      <input type="range" id="timeSlider" min="0" max="100" value="0" disabled>
+      <span id="currentTimeDisplay">--:--:--</span>
+    </div>
+  </div>
+
+  <script src="firedb.js"></script>
+  <script>
+    // 🔹 Inicializa Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 🔹 Mapa
+    const map = L.map('map').setView([-27.5954, -48.5480], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // 🔹 Ícone do barco
+    const barcoIcon = L.icon({
+      iconUrl: "https://cdn-icons-png.flaticon.com/512/77/77521.png",
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    // 🔹 Estrutura de dados Global do Replay
+    const dadosReplay = {};
+    let globalMinTime = Infinity;
+    let globalMaxTime = -Infinity;
+    let tempoAtualSimulado = 0;
+    
+    // Controle da Animação
+    let isPlaying = false;
+    let animationTimer = null;
+    let todosMarcados = true;
+
+    // Elementos de UI
+    const slider = document.getElementById("timeSlider");
+    const timeDisplay = document.getElementById("currentTimeDisplay");
+    const listaUI = document.getElementById("competidoresLista");
+    const btnPlayPause = document.getElementById("btnPlayPause");
+    const speedSelect = document.getElementById("speedSelect");
+    const btnToggleTodos = document.getElementById("btnToggleTodos");
+
+    function colorFromId(id) {
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) {
+        hash = id.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const hue = Math.abs(hash) % 360;
+      return `hsl(${hue}, 85%, 45%)`;
+    }
+
+    // 🔹 1. Baixa todos os dados históricos de uma vez
+    console.log("Baixando dados para o Replay...");
+    db.ref("rotas").once("value", snapshot => {
+      const rotas = snapshot.val() || {};
+      let totalPontosCarregados = 0;
+
+      Object.keys(rotas).forEach(dispositivo => {
+        Object.keys(rotas[dispositivo] || {}).forEach(trechoId => {
+          const trecho = rotas[dispositivo][trechoId];
+          const idCompetidor = `${dispositivo}_${trechoId}`;
+          const nome = trecho?.nomebarco || dispositivo;
+          const cor = colorFromId(idCompetidor);
+
+          const listaPontos = [];
+
+          if (trecho.pontos) {
+            Object.keys(trecho.pontos).forEach(pKey => {
+              const p = trecho.pontos[pKey];
+              if (p && p.lat && p.lon) {
+                let ts = p.timestamp ? Number(p.timestamp) : (p.time ? new Date(p.time).getTime() : null);
+                if (ts && !isNaN(ts)) {
+                  listaPontos.push({
+                    lat: p.lat,
+                    lon: p.lon,
+                    rumo: p.heading ?? p.rumo ?? 0,
+                    timestamp: ts
+                  });
+                  totalPontosCarregados++;
+                }
+              }
+            });
+          }
+
+          if (listaPontos.length > 0) {
+            listaPontos.sort((a, b) => a.timestamp - b.timestamp);
+
+            const tMin = listaPontos[0].timestamp;
+            const tMax = listaPontos[listaPontos.length - 1].timestamp;
+            if (tMin < globalMinTime) globalMinTime = tMin;
+            if (tMax > globalMaxTime) globalMaxTime = tMax;
+
+            dadosReplay[idCompetidor] = {
+              nome: nome,
+              cor: cor,
+              todosPontos: listaPontos,
+              visible: true,
+              marker: L.marker([listaPontos[0].lat, listaPontos[0].lon], {
+                icon: barcoIcon,
+                rotationAngle: listaPontos[0].rumo,
+                rotationOrigin: "center"
+              }).bindTooltip(nome, { permanent: true, direction: "right", offset: [10,0] }),
+              polyline: L.polyline([], { color: cor, weight: 3, opacity: 0.85 })
+            };
+          }
+        });
+      });
+
+      if (totalPontosCarregados === 0) {
+        listaUI.innerText = "Nenhuma trilha encontrada no banco de dados.";
+        return;
+      }
+
+      console.log(`Carga finalizada. ${totalPontosCarregados} pontos mapeados.`);
+      
+      slider.min = globalMinTime;
+      slider.max = globalMaxTime;
+      slider.value = globalMinTime;
+      slider.disabled = false;
+      btnPlayPause.disabled = false;
+      tempoAtualSimulado = globalMinTime;
+
+      construirListaCompetidoresUI();
+      renderizarEstadoReplay();
+      centralizarReplay();
+    });
+
+    // 🔹 2. Constrói o menu lateral de caixas de seleção
+    function construirListaCompetidoresUI() {
+      listaUI.innerHTML = "";
+      Object.keys(dadosReplay).forEach(id => {
+        const comp = dadosReplay[id];
+        
+        const item = document.createElement("div");
+        item.className = "competidor-item";
+
+        const chk = document.createElement("input");
+        chk.type = "checkbox";
+        chk.checked = comp.visible;
+        chk.id = "chk_" + id;
+        chk.addEventListener("change", (e) => {
+          comp.visible = e.target.checked;
+          if (!comp.visible) {
+            if (comp.marker) map.removeLayer(comp.marker);
+            if (comp.polyline) map.removeLayer(comp.polyline);
+          }
+          renderizarEstadoReplay();
+        });
+
+        const lblColor = document.createElement("span");
+        lblColor.className = "color-box";
+        lblColor.style.backgroundColor = comp.cor;
+
+        const lblName = document.createElement("label");
+        lblName.htmlFor = "chk_" + id;
+        lblName.innerText = comp.nome;
+
+        item.appendChild(chk);
+        item.appendChild(lblColor);
+        item.appendChild(lblName);
+        listaUI.appendChild(item);
+      });
+    }
+
+    // Botão de Marcar/Desmarcar Todos
+    btnToggleTodos.addEventListener("click", () => {
+      todosMarcados = !todosMarcados;
+      Object.keys(dadosReplay).forEach(id => {
+        const comp = dadosReplay[id];
+        comp.visible = todosMarcados;
+        const chk = document.getElementById("chk_" + id);
+        if (chk) chk.checked = todosMarcados;
+        
+        if (!todosMarcados) {
+          if (comp.marker) map.removeLayer(comp.marker);
+          if (comp.polyline) map.removeLayer(comp.polyline);
+        }
+      });
+      renderizarEstadoReplay();
+    });
+
+    // 🔹 3. Atualiza os barcos e trilhas no mapa
+    function renderizarEstadoReplay() {
+      const d = new Date(tempoAtualSimulado);
+      timeDisplay.innerText = d.toLocaleTimeString() + " (" + d.toLocaleDateString() + ")";
+
+      Object.keys(dadosReplay).forEach(id => {
+        const comp = dadosReplay[id];
+        
+        if (!comp.visible) return;
+
+        const pontosAteMomento = comp.todosPontos.filter(p => p.timestamp <= tempoAtualSimulado);
+
+        if (pontosAteMomento.length > 0) {
+          const ultimoPonto = pontosAteMomento[pontosAteMomento.length - 1];
+
+          comp.marker.setLatLng([ultimoPonto.lat, ultimoPonto.lon]);
+          comp.marker.setRotationAngle(ultimoPonto.rumo);
+          if (!map.hasLayer(comp.marker)) comp.marker.addTo(map);
+
+          const latLonsTrilha = pontosAteMomento.map(p => [p.lat, p.lon]);
+          comp.polyline.setLatLngs(latLonsTrilha);
+          if (!map.hasLayer(comp.polyline)) comp.polyline.addTo(map);
+
+        } else {
+          if (map.hasLayer(comp.marker)) map.removeLayer(comp.marker);
+          if (map.hasLayer(comp.polyline)) map.removeLayer(comp.polyline);
+        }
+      });
+    }
+
+    // Ouvinte manual do Slider
+    slider.addEventListener("input", (e) => {
+      tempoAtualSimulado = Number(e.target.value);
+      renderizarEstadoReplay();
+    });
+
+    // 🔹 4. Automação do Replay (Play/Pause/Speed)
+    function iniciarPlayback() {
+      if (tempoAtualSimulado >= globalMaxTime) {
+        tempoAtualSimulado = globalMinTime;
+        slider.value = globalMinTime;
+      }
+      
+      isPlaying = true;
+      btnPlayPause.innerText = "⏸ Pause";
+      btnPlayPause.style.background = "#FF4136";
+
+      const intervalMs = 100; // Atualiza a cada 100ms
+      
+      animationTimer = setInterval(() => {
+        const multiplicadorVelocidade = parseFloat(speedSelect.value);
+        
+        // Incrementa o tempo simulado proporcionalmente (100ms * multiplicador em segundos)
+        tempoAtualSimulado += (intervalMs * multiplicadorVelocidade * 10);
+
+        if (tempoAtualSimulado >= globalMaxTime) {
+          tempoAtualSimulado = globalMaxTime;
+          pausarPlayback();
+        }
+
+        slider.value = tempoAtualSimulado;
+        renderizarEstadoReplay();
+      }, intervalMs);
+    }
+
+    function pausarPlayback() {
+      isPlaying = false;
+      btnPlayPause.innerText = "▶ Play";
+      btnPlayPause.style.background = "#2ECC40";
+      if (animationTimer) clearInterval(animationTimer);
+    }
+
+    btnPlayPause.addEventListener("click", () => {
+      if (isPlaying) {
+        pausarPlayback();
+      } else {
+        iniciarPlayback();
+      }
+    });
+
+    // 🔹 5. Centralizar o mapa
+    function centralizarReplay() {
+      const coords = [];
+      Object.keys(dadosReplay).forEach(id => {
+        const comp = dadosReplay[id];
+        if (comp.visible && comp.todosPontos.length > 0) {
+          comp.todosPontos.forEach(p => coords.push([p.lat, p.lon]));
+        }
+      });
+      
+      if (coords.length > 0) {
+        const bounds = L.latLngBounds(coords);
+        map.fitBounds(bounds.pad(0.1));
+      }
+    }
+
+    document.getElementById("btnCentralizar").addEventListener("click", centralizarReplay);
+  </script>
+</body>
+</html>
